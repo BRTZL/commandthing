@@ -31,7 +31,7 @@ function MediaIcon({ name, className }: { name: string; className?: string }) {
 const SCRIM =
   "radial-gradient(120% 90% at 50% 8%, rgba(0,0,0,0) 38%, rgba(0,0,0,.5) 100%)," +
   "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.12) 35%, rgba(0,0,0,.85))";
-const LYRIC_FADE = "linear-gradient(180deg, transparent, #000 28%, #000 72%, transparent)";
+const LYRIC_FADE = "linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent)";
 
 /**
  * "Immerse" now-playing: the album art fills the screen, blurred, with the
@@ -118,7 +118,7 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
             variant="ghost"
             size="icon"
             onClick={() => control("playpause")}
-            className="mx-2 h-14 w-14 rounded-full border-2 border-foreground/50 bg-foreground/15 text-foreground hover:bg-foreground/25"
+            className="mx-2 h-14 w-14 rounded-full bg-foreground text-background hover:bg-foreground/90"
           >
             <MediaIcon name={playing ? "pause" : "play"} className="h-7 w-7" />
           </Button>
@@ -165,7 +165,7 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   if (!np.lyricsLoaded || !lines || lines.length === 0) {
     const art = artUrl(np);
     return (
-      <div className="absolute bottom-36 left-0 right-0 top-20 flex flex-col items-center justify-center">
+      <div className="absolute bottom-24 left-0 right-0 top-10 flex flex-col items-center justify-center">
         {art && <img src={art} alt="Album art" className="h-48 w-48 rounded-2xl object-cover shadow-2xl" />}
         <div className="mt-5 text-base text-foreground/60">
           {np.lyricsLoaded ? "No synced lyrics" : "Loading lyrics…"}
@@ -177,7 +177,7 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   return (
     <div
       ref={scroller}
-      className="dial-scroll absolute bottom-36 left-0 right-0 top-20 overflow-y-auto text-center [&::-webkit-scrollbar]:w-0"
+      className="dial-scroll absolute bottom-24 left-0 right-0 top-10 overflow-y-auto text-center [&::-webkit-scrollbar]:w-0"
       style={{
         WebkitMaskImage: LYRIC_FADE,
         maskImage: LYRIC_FADE,
