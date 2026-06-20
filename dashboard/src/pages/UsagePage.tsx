@@ -3,15 +3,15 @@ import type { UsageLine, UsageProvider, UsageSummary } from "../dashboardTypes";
 export function UsagePage({ usage }: { usage: UsageSummary | null }) {
   if (!usage) {
     return (
-      <div className="page-pad">
-        <div className="empty">Loading usage…</div>
+      <div className="p-6">
+        <div className="text-muted text-[17px] text-center py-10">Loading usage…</div>
       </div>
     );
   }
   if (usage.error && usage.providers.length === 0) {
     return (
-      <div className="page-pad">
-        <div className="empty">
+      <div className="p-6">
+        <div className="text-muted text-[17px] text-center py-10">
           Usage unavailable
           <br />
           <small>{usage.error}</small>
@@ -21,12 +21,12 @@ export function UsagePage({ usage }: { usage: UsageSummary | null }) {
   }
 
   return (
-    <div className="usage-page">
-      <div className="usage-summary">
-        <span className="usage-today">{usage.todayLabel}</span>
-        <span className="usage-sub">across {usage.providers.length} providers</span>
+    <div className="flex-1 w-full flex flex-col min-h-0 p-[14px]">
+      <div className="flex-none flex items-baseline mb-3">
+        <span className="text-[30px] font-bold tabular-nums">{usage.todayLabel}</span>
+        <span className="ml-[14px] text-[15px] text-muted">across {usage.providers.length} providers</span>
       </div>
-      <div className="usage-providers dial-scroll">
+      <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-2 gap-3 content-start [&::-webkit-scrollbar]:w-0 dial-scroll">
         {usage.providers.map((p) => (
           <ProviderCard key={p.providerId} p={p} />
         ))}
@@ -40,24 +40,24 @@ function ProviderCard({ p }: { p: UsageProvider }) {
   const texts = p.lines.filter((l) => l.type === "text");
   const chart = p.lines.find((l) => l.type === "barChart");
   return (
-    <section className="prov-card">
-      <div className="prov-head">
-        <span className="prov-name">{p.displayName}</span>
-        {p.plan && <span className="prov-plan">{p.plan}</span>}
+    <section className="bg-card border border-border rounded-[14px] px-[15px] py-[13px]">
+      <div className="flex items-baseline justify-between mb-[11px]">
+        <span className="text-[17px] font-bold">{p.displayName}</span>
+        {p.plan && <span className="text-[13px] text-muted">{p.plan}</span>}
       </div>
 
-      <div className="prov-bars">
+      <div>
         {progress.map((l) => (
           <ProgressLine key={l.label} l={l} />
         ))}
       </div>
 
       {texts.length > 0 && (
-        <div className="prov-texts">
+        <div className="mt-2 border-t border-border pt-[9px]">
           {texts.map((l) => (
-            <div key={l.label} className="prov-text">
-              <span className="pt-label">{l.label}</span>
-              <span className="pt-value">{l.value ?? "—"}</span>
+            <div key={l.label} className="flex items-baseline justify-between py-[3px]">
+              <span className="text-[13px] text-muted">{l.label}</span>
+              <span className="text-[14px] tabular-nums">{l.value ?? "—"}</span>
             </div>
           ))}
         </div>
@@ -85,13 +85,16 @@ function ProgressLine({ l }: { l: UsageLine }) {
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : Math.min(100, used);
   const hot = pct >= 80;
   return (
-    <div className="pl">
-      <div className="pl-top">
-        <span className="pl-label">{l.label}</span>
-        <span className="pl-val">{fmtProgress(l)}</span>
+    <div className="mb-[11px]">
+      <div className="flex items-baseline justify-between mb-[5px]">
+        <span className="text-[14px] text-[#c8cdda]">{l.label}</span>
+        <span className="text-[13px] text-muted tabular-nums">{fmtProgress(l)}</span>
       </div>
-      <div className="pl-track">
-        <div className={`pl-fill ${hot ? "hot" : ""}`} style={{ width: `${pct}%` }} />
+      <div className="h-2 bg-card-2 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full ${hot ? "bg-waiting" : "bg-accent"}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -107,14 +110,18 @@ function BarChart({
   const recent = points.slice(-20);
   const max = Math.max(...recent.map((p) => p.value), 1);
   return (
-    <div className="barchart">
+    <div className="flex items-end h-[78px] mt-[11px] border-t border-border pt-[9px]">
       {recent.map((pt, i) => (
-        <div key={pt.label} className="bc-col" title={`${pt.label}: ${pt.valueLabel}`}>
+        <div
+          key={pt.label}
+          className="flex-1 flex flex-col justify-end items-center h-full"
+          title={`${pt.label}: ${pt.valueLabel}`}
+        >
           <div
-            className="bc-bar"
+            className="w-[62%] rounded-t-[2px] min-h-[3px]"
             style={{ height: `${Math.max(3, (pt.value / max) * 100)}%`, background: color }}
           />
-          {i % 4 === 0 && <span className="bc-label">{pt.label}</span>}
+          {i % 4 === 0 && <span className="text-[9px] text-muted mt-[3px]">{pt.label}</span>}
         </div>
       ))}
     </div>
