@@ -3,9 +3,9 @@ import { client } from "../client";
 import type { SessionDetail, SessionTimelineItem } from "../dashboardTypes";
 import { shortModel } from "../format";
 
-const CHIP = "mb-1.75 mr-1.75 rounded-md border border-border bg-card-2 px-2.25 py-0.75 text-sm";
-const TAG = "rounded-md border bg-card-2 px-2 py-0.75 text-xs font-bold";
-const TI = "ml-1 border-l-2 border-border pb-2.25 pl-3.5 pt-1.75";
+const CHIP = "mb-2 mr-2 rounded-md border border-border bg-secondary px-2 py-0.5 text-sm";
+const TAG = "rounded-md border bg-secondary px-2 py-0.5 text-xs font-bold";
+const TI = "ml-1 border-l-2 border-border pb-2 pl-3.5 pt-2";
 
 export function SessionPage({ id }: { id: string }) {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
@@ -37,7 +37,7 @@ export function SessionPage({ id }: { id: string }) {
     const notFound = !!error && /not found/i.test(error);
     return (
       <div className="p-6">
-        <div className="py-10 text-center text-lg text-muted">
+        <div className="py-10 text-center text-lg text-muted-foreground">
           {notFound ? "Session not found" : "Loading session…"}
         </div>
       </div>
@@ -50,32 +50,32 @@ export function SessionPage({ id }: { id: string }) {
 
   return (
     <div className="flex w-full flex-1 flex-col min-h-0 p-3.5">
-      <div className="mb-2.75 flex-none rounded-xl border border-border bg-card px-3.75 py-3.25">
+      <div className="mb-3 flex-none rounded-xl border border-border bg-card px-4 py-3">
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold">{detail.project}</span>
           <span
             data-state={detail.state}
-            className="rounded-full bg-idle px-2.75 py-1 text-sm font-bold uppercase tracking-wide text-ink data-[state=waiting]:bg-waiting data-[state=working]:bg-working"
+            className="rounded-full bg-idle px-3 py-1 text-sm font-bold uppercase tracking-wide text-primary-foreground data-[state=waiting]:bg-waiting data-[state=working]:bg-working"
           >
             {detail.needsInput ? "needs you" : detail.state}
           </span>
         </div>
-        {detail.title && <div className="mt-1 text-base text-muted">{detail.title}</div>}
+        {detail.title && <div className="mt-1 text-base text-muted-foreground">{detail.title}</div>}
         <div className="mt-2.5 flex flex-wrap">
-          {model && <span className={`${CHIP} text-foreground-dim`}>{model}</span>}
+          {model && <span className={`${CHIP} text-foreground`}>{model}</span>}
           {detail.gitBranch && detail.gitBranch !== "HEAD" && (
-            <span className={`${CHIP} font-mono text-accent`}>{detail.gitBranch}</span>
+            <span className={`${CHIP} font-mono text-primary`}>{detail.gitBranch}</span>
           )}
-          <span className={`${CHIP} text-foreground-dim`}>{detail.messageCount} msgs</span>
+          <span className={`${CHIP} text-foreground`}>{detail.messageCount} msgs</span>
           {detail.todos.length > 0 && (
-            <span className={`${CHIP} text-foreground-dim`}>
+            <span className={`${CHIP} text-foreground`}>
               tasks {todoDone}/{detail.todos.length}
             </span>
           )}
           {Object.keys(detail.toolCounts)
             .sort((a, b) => detail.toolCounts[b] - detail.toolCounts[a])
             .map((k) => (
-              <span key={k} className={`${CHIP} text-muted`}>
+              <span key={k} className={`${CHIP} text-muted-foreground`}>
                 {k} {detail.toolCounts[k]}
               </span>
             ))}
@@ -83,7 +83,9 @@ export function SessionPage({ id }: { id: string }) {
       </div>
 
       <div className="dial-scroll min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-0">
-        {items.length === 0 && <div className="py-10 text-center text-lg text-muted">No activity yet</div>}
+        {items.length === 0 && (
+          <div className="py-10 text-center text-lg text-muted-foreground">No activity yet</div>
+        )}
         {items.map((it) => (
           <TimelineRow key={it.id} it={it} />
         ))}
@@ -100,15 +102,15 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
           <span className={`${TAG} border-border uppercase tracking-wide text-waiting`}>tasks</span>
           <span className="ml-2 text-sm text-foreground">Updated task list</span>
         </div>
-        <div className="mt-1.75">
+        <div className="mt-2">
           {it.todos?.map((t) => (
             <div
               key={t.content}
               data-status={t.status}
-              className="group flex items-center py-0.75 text-base text-foreground-dim"
+              className="group flex items-center py-0.5 text-base text-foreground"
             >
-              <span className="mr-2.25 h-3.25 w-3.25 flex-none rounded-sm border-2 border-muted group-data-[status=completed]:border-working group-data-[status=completed]:bg-working group-data-[status=in_progress]:border-waiting group-data-[status=in_progress]:bg-waiting" />
-              <span className="group-data-[status=completed]:text-muted group-data-[status=completed]:line-through">
+              <span className="mr-2 h-3 w-3 flex-none rounded-sm border-2 border-muted-foreground group-data-[status=completed]:border-working group-data-[status=completed]:bg-working group-data-[status=in_progress]:border-waiting group-data-[status=in_progress]:bg-waiting" />
+              <span className="group-data-[status=completed]:text-muted-foreground group-data-[status=completed]:line-through">
                 {t.content}
               </span>
             </div>
@@ -124,12 +126,12 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
       <div className={`${TI} flex items-center`}>
         <span
           data-status={st}
-          className={`${TAG} border-border font-mono text-foreground-dim data-[status=ok]:border-working/40 data-[status=error]:border-destructive/60 data-[status=error]:text-destructive-foreground`}
+          className={`${TAG} border-border font-mono text-foreground data-[status=ok]:border-working/40 data-[status=error]:border-destructive/60 data-[status=error]:text-destructive-foreground`}
         >
           {it.tool?.name}
         </span>
         {it.tool?.target && (
-          <span className="ml-2.5 truncate font-mono text-sm text-muted">{it.tool.target}</span>
+          <span className="ml-2.5 truncate font-mono text-sm text-muted-foreground">{it.tool.target}</span>
         )}
         <span
           data-status={st}
@@ -147,12 +149,12 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
       <div className="flex items-center">
         <span
           data-kind={it.kind}
-          className={`${TAG} border-border uppercase tracking-wide text-working data-[kind=prompt]:text-accent data-[kind=thinking]:text-thinking`}
+          className={`${TAG} border-border uppercase tracking-wide text-working data-[kind=prompt]:text-primary data-[kind=thinking]:text-thinking`}
         >
           {who}
         </span>
       </div>
-      <div className="mt-1.5 max-h-37.5 overflow-hidden whitespace-pre-wrap break-words text-base leading-normal text-foreground-dim">
+      <div className="mt-1.5 max-h-36 overflow-hidden whitespace-pre-wrap break-words text-base leading-normal text-foreground">
         {it.text}
       </div>
     </div>

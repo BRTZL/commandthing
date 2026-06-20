@@ -53,10 +53,10 @@ export function NotificationOverlay({
         openSession(alert.id);
         setAlert(null);
       }}
-      className="absolute bottom-4.5 left-1/2 flex w-95 -translate-x-1/2 items-center rounded-xl border border-waiting bg-toast px-4 py-3.5 text-left shadow-xl"
+      className="absolute bottom-4 left-1/2 flex w-96 -translate-x-1/2 items-center rounded-xl border border-waiting bg-card px-4 py-3 text-left shadow-xl"
     >
-      <span className="mr-3 h-2.75 w-2.75 animate-pulse rounded-full bg-waiting" />
-      <span className="text-md text-foreground">
+      <span className="mr-3 h-2.5 w-2.5 animate-pulse rounded-full bg-waiting" />
+      <span className="text-base text-foreground">
         <b>{alert.project}</b> needs you
       </span>
       <span className="ml-auto text-base font-semibold text-waiting">view ›</span>

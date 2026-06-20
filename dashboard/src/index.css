@@ -2,34 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens — shadcn-style HSL triplets (bare "H S% L%" so hsl(var(--x)) and
-   Tailwind alpha modifiers like bg-accent/30 work). Chromium-69-safe (no oklch).
-   Every color the UI uses lives here; components reference tokens, never hex. */
+/* shadcn-style design tokens (HSL triplets) tuned to our dark theme.
+   Chromium-69-safe — no oklch. Components reference these via Tailwind. */
 :root {
   --background: 228 18% 5%;
   --foreground: 226 31% 95%;
-  --foreground-dim: 226 14% 84%;
 
   --card: 228 20% 10%;
-  --card-2: 228 21% 13%;
-  --card-selected: 227 23% 15%;
-  --surface-2: 224 20% 21%;
+  --card-foreground: 226 31% 95%;
+
+  --popover: 228 20% 10%;
+  --popover-foreground: 226 31% 95%;
+
+  --primary: 221 89% 72%;
+  --primary-foreground: 228 30% 6%;
+
+  --secondary: 228 21% 13%;
+  --secondary-foreground: 226 31% 95%;
+
+  --muted: 228 21% 13%;
+  --muted-foreground: 226 13% 62%;
+
+  --accent: 227 23% 15%;
+  --accent-foreground: 226 31% 95%;
+
+  --destructive: 358 75% 59%;
+  --destructive-foreground: 359 100% 81%;
 
   --border: 226 18% 20%;
-  --muted: 226 13% 62%;
-  --accent: 221 89% 72%;
+  --input: 226 18% 20%;
+  --ring: 221 89% 72%;
 
-  /* dark ink for text on bright (accent/state) badges */
-  --ink: 228 30% 6%;
-
+  /* app-specific session/state colors */
   --working: 152 69% 55%;
   --waiting: 39 92% 63%;
   --idle: 225 11% 40%;
   --thinking: 265 84% 75%;
-  --destructive: 358 75% 59%;
-  --destructive-foreground: 359 100% 81%;
-
-  --toast: 41 58% 8%;
 }
 
 @layer base {
