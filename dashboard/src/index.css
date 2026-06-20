@@ -55,4 +55,13 @@
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+  /* The device's Chromium-69/QtWebEngine paints a native "buttonface" (light
+     gray) fill on <button> because it honors -webkit-appearance: button. Strip
+     the native appearance so buttons are transparent until a bg-* utility sets a
+     color (utilities still win over this base rule). */
+  button {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
 }
