@@ -55,6 +55,8 @@ export interface DashboardState {
   sessions: ClaudeSession[];
   /** AI spend/usage across providers (from the local Open Usage API). */
   usage: UsageSummary | null;
+  /** Spotify now-playing on the Mac, if available. */
+  nowPlaying: NowPlaying | null;
 }
 
 export function emptyState(host = "unknown"): DashboardState {
@@ -63,7 +65,46 @@ export function emptyState(host = "unknown"): DashboardState {
     host,
     sessions: [],
     usage: null,
+    nowPlaying: null,
   };
+}
+
+/* ----------------------------- now playing (Spotify) ----------------------------- */
+
+export type PlayerState = "playing" | "paused" | "stopped";
+
+/** One time-synced lyric line; `t` is seconds from track start. */
+export interface LyricLine {
+  t: number;
+  text: string;
+}
+
+export interface NowPlaying {
+  source: "spotify";
+  state: PlayerState;
+  title: string;
+  artist: string;
+  album: string;
+  /** Spotify track id (stable per song — keys the lyrics/artwork caches). */
+  trackId: string;
+  durationSec: number;
+  /** Server-sampled position; the client interpolates between samples. */
+  positionSec: number;
+  /** 0–100. */
+  volume: number;
+  /** Raw Spotify CDN art URL; the device loads it via the feeder's /api/artwork proxy. */
+  artworkUrl: string | null;
+  /** Time-synced lyrics (LRCLIB), or null when none/instrumental. */
+  lyrics: LyricLine[] | null;
+  /** True once the lyrics lookup for this track has completed (loading vs none). */
+  lyricsLoaded: boolean;
+}
+
+/** Control command the device sends back over the WS (method "media.control"). */
+export interface MediaControl {
+  action: "playpause" | "play" | "pause" | "next" | "previous" | "volume";
+  /** Target volume 0–100 (only for action "volume"). */
+  value?: number;
 }
 
 /* ----------------------------- usage (Open Usage) ----------------------------- */

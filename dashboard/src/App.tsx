@@ -6,7 +6,8 @@ import { TopBar } from "./components/TopBar";
 import { type DashboardState, emptyState } from "./dashboardTypes";
 import { connectHardware, type HwAction } from "./hardware";
 import { BoardPage } from "./pages/BoardPage";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { FocusPage } from "./pages/FocusPage";
+import { MusicPage } from "./pages/MusicPage";
 import { SessionPage } from "./pages/SessionPage";
 import { UsagePage } from "./pages/UsagePage";
 import { goBack, goToTab, openSession, useRoute } from "./router";
@@ -52,7 +53,8 @@ export function App() {
 
   const onAction = (a: HwAction) => {
     const r = routeRef.current;
-    const onBoard = r.tab === "sessions" && !r.sessionId;
+    const tab = r.tab;
+    const onBoard = tab === "sessions" && !r.sessionId;
     if (a.type === "tab") {
       const t = tabByPreset(a.preset);
       if (t) goToTab(t.id);
@@ -62,6 +64,11 @@ export function App() {
       if (onBoard) {
         const n = stateRef.current.sessions.length;
         setSelected((i) => clamp(i + a.dir, 0, Math.max(0, n - 1)));
+      } else if (tab === "music") {
+        const v = stateRef.current.nowPlaying?.volume ?? 50;
+        void client.request("media.control", { action: "volume", value: clamp(v + a.dir * 5, 0, 100) });
+      } else if (tab === "focus") {
+        window.dispatchEvent(new CustomEvent("focus-dial", { detail: a.dir }));
       } else {
         document.querySelector(".dial-scroll")?.scrollBy({ top: a.dir * 96, behavior: "smooth" });
       }
@@ -69,6 +76,10 @@ export function App() {
       if (onBoard) {
         const s = stateRef.current.sessions[selRef.current];
         if (s) openSession(s.id);
+      } else if (tab === "music") {
+        void client.request("media.control", { action: "playpause" });
+      } else if (tab === "focus") {
+        window.dispatchEvent(new Event("focus-press"));
       }
     }
     // "settings" reserved for later
@@ -82,9 +93,8 @@ export function App() {
     const off = connectHardware(onAction);
 
     const onWheel = (e: WheelEvent) => {
-      const r = routeRef.current;
-      // On the board the dial moves the selection; elsewhere let it scroll.
-      if (r.tab !== "sessions" || r.sessionId) return;
+      // The dial rotation arrives as a wheel event; onAction routes it per tab
+      // (board selection / music volume / focus minutes / else scroll).
       const d = e.deltaX !== 0 ? e.deltaX : e.deltaY;
       if (d === 0) return;
       e.preventDefault();
@@ -126,8 +136,8 @@ export function App() {
         <Routes>
           <Route path="/" element={board} />
           <Route path="/usage" element={<UsagePage usage={state.usage} />} />
-          <Route path="/calendar" element={<PlaceholderPage title="Calendar" subtitle="Coming soon" />} />
-          <Route path="/more" element={<PlaceholderPage title="More" subtitle="Coming soon" />} />
+          <Route path="/music" element={<MusicPage nowPlaying={state.nowPlaying} />} />
+          <Route path="/focus" element={<FocusPage />} />
           <Route path="/session/:id" element={<SessionRoute />} />
           <Route path="*" element={board} />
         </Routes>

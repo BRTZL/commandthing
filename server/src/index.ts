@@ -15,20 +15,31 @@ import { existsSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
-import { type DashboardState, emptyState, type NocturneEvent, WS_TOPIC } from "../../shared/protocol.ts";
+import {
+  type DashboardState,
+  emptyState,
+  type MediaControl,
+  type NocturneEvent,
+  type NowPlaying,
+  WS_TOPIC,
+} from "../../shared/protocol.ts";
 import { buildSessions } from "./claudeWatcher.ts";
 import { HookStore } from "./hooks.ts";
+import { ensureLyrics, getNowPlaying, mediaControl } from "./media.ts";
 import { getSessionDetail } from "./sessionDetail.ts";
 import { getUsage } from "./usage.ts";
 
 const PORT = Number(process.env.PORT ?? 4000);
 const HOST = process.env.HOST ?? "0.0.0.0"; // bind all interfaces so the device can reach us over USB-net
 const POLL_MS = Number(process.env.POLL_MS ?? 2000);
+const MEDIA_MS = Number(process.env.MEDIA_MS ?? 1000); // now-playing samples faster than sessions
 const DIST_DIR = join(import.meta.dir, "..", "..", "dashboard", "dist");
 
 const hooks = new HookStore();
 const clients = new Set<ServerWebSocket<unknown>>();
 let current: DashboardState = emptyState(hostname());
+let nowPlaying: NowPlaying | null = null;
+const artCache = new Map<string, ArrayBuffer>(); // proxied Spotify album art
 
 function rebuild(): void {
   const now = Date.now();
@@ -37,8 +48,22 @@ function rebuild(): void {
     host: hostname(),
     sessions: buildSessions(hooks, now),
     usage: getUsage(),
+    nowPlaying,
   };
   current = next;
+  broadcast();
+}
+
+/** Sample Spotify (+ attach cached lyrics) and broadcast. Runs every MEDIA_MS. */
+async function refreshMedia(): Promise<void> {
+  const np = await getNowPlaying();
+  if (np?.trackId) {
+    const ly = ensureLyrics(np);
+    np.lyrics = ly.lines;
+    np.lyricsLoaded = ly.loaded;
+  }
+  nowPlaying = np;
+  current = { ...current, nowPlaying };
   broadcast();
 }
 
@@ -59,10 +84,10 @@ function broadcast(): void {
 }
 
 /** nocturned-style request/response over the same socket (ports to the device). */
-function handleRequest(
+async function handleRequest(
   ws: ServerWebSocket<unknown>,
   msg: { id: string; method?: string; params?: any },
-): void {
+): Promise<void> {
   try {
     if (msg.method === "session.detail") {
       const detail = getSessionDetail(String(msg.params?.id ?? ""), hooks);
@@ -71,6 +96,12 @@ function handleRequest(
         return;
       }
       ws.send(JSON.stringify({ type: "response", id: msg.id, result: detail }));
+      return;
+    }
+    if (msg.method === "media.control") {
+      await mediaControl(msg.params as MediaControl);
+      await refreshMedia(); // push the new state right away so the UI feels instant
+      ws.send(JSON.stringify({ type: "response", id: msg.id, result: { ok: true } }));
       return;
     }
     ws.send(JSON.stringify({ type: "error", id: msg.id, error: `unknown method: ${msg.method}` }));
@@ -117,6 +148,23 @@ const server = Bun.serve({
       return Response.json(current);
     }
 
+    // Album-art proxy: the device has no internet, so it loads Spotify CDN art
+    // through here. Restricted to the Spotify image host; cached in memory.
+    if (url.pathname === "/api/artwork") {
+      const u = url.searchParams.get("u") ?? "";
+      if (!u.startsWith("https://i.scdn.co/")) return new Response("bad art url", { status: 400 });
+      const headers = { "content-type": "image/jpeg", "cache-control": "max-age=86400" };
+      const hit = artCache.get(u);
+      if (hit) return new Response(hit, { headers });
+      try {
+        const buf = await (await fetch(u)).arrayBuffer();
+        artCache.set(u, buf);
+        return new Response(buf, { headers });
+      } catch {
+        return new Response("art fetch failed", { status: 502 });
+      }
+    }
+
     // HTTP mirrors of the WS data (handy for curl/debugging; UI uses the WS).
     if (url.pathname === "/api/usage") {
       return Response.json(getUsage());
@@ -153,7 +201,7 @@ const server = Bun.serve({
         return;
       }
       if (msg && msg.type === "request" && typeof msg.id === "string") {
-        handleRequest(ws, msg);
+        void handleRequest(ws, msg);
       }
     },
   },
@@ -161,6 +209,8 @@ const server = Bun.serve({
 
 rebuild();
 setInterval(rebuild, POLL_MS);
+refreshMedia();
+setInterval(refreshMedia, MEDIA_MS);
 
 console.log(`[feeder] http://localhost:${server.port}  ws://localhost:${server.port}/ws`);
 console.log(`[feeder] polling ~/.claude every ${POLL_MS}ms`);
