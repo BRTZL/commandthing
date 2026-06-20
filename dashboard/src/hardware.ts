@@ -1,13 +1,14 @@
 /**
- * Car Thing physical controls.
+ * Car Thing physical controls that arrive over the native bridge.
  *
- * On this firmware (Thing Labs OS / qt-superbird), the hardware buttons and dial
- * are NOT delivered as DOM key events — the native app streams them as JSON over
- * a local WebSocket at ws://localhost:8890, e.g. {"type":"dial_right"}.
+ * On this firmware (Thing Labs OS / qt-superbird) the preset buttons, dial PRESS,
+ * back and settings are streamed as JSON over a local WebSocket at
+ * ws://localhost:8890, e.g. {"type":"preset_2"}. The dial ROTATION is different —
+ * it arrives as a DOM `wheel` event (deltaX sign = direction), handled in App.tsx.
  *
  * Our dashboard runs in the device's Chromium, so it connects to that socket
- * directly. On a desktop browser (dev/preview) there's no :8890, so the connect
- * fails silently and you use the keyboard fallback in App.tsx instead.
+ * directly. On a desktop browser there's no :8890, so the connect fails silently
+ * and you use the keyboard fallback in App.tsx.
  */
 
 export type HwAction =

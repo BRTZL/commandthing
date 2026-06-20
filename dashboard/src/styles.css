@@ -19,6 +19,9 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -29,7 +32,9 @@ body {
   color: var(--text);
   font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-touch-callout: none;
   overflow: hidden;
+  cursor: default;
 }
 
 .device {
@@ -167,6 +172,7 @@ body {
 .session-list {
   overflow-y: auto;
   min-height: 0;
+  padding-bottom: 52px;
 }
 .session-list::-webkit-scrollbar {
   width: 0;

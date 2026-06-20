@@ -73,9 +73,24 @@ export function App() {
     // "settings" reserved for later
   };
 
-  // Hardware (on-device) + keyboard fallback (desktop dev). Bound once.
+  // Inputs (bound once):
+  //  - 8890 socket: preset buttons, dial press, back, settings
+  //  - DOM wheel: the dial ROTATION (deltaX sign = direction)
+  //  - keyboard: desktop-dev fallback
   useEffect(() => {
     const off = connectHardware(onAction);
+
+    const onWheel = (e: WheelEvent) => {
+      const r = routeRef.current;
+      // On the board the dial moves the selection; elsewhere let it scroll.
+      if (r.tab !== "sessions" || r.sessionId) return;
+      const d = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+      if (d === 0) return;
+      e.preventDefault();
+      onAction({ type: "dial", dir: d < 0 ? -1 : 1 });
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key >= "1" && e.key <= "4") onAction({ type: "tab", preset: Number(e.key) });
       else if (e.key === "ArrowUp" || e.key === "ArrowLeft") onAction({ type: "dial", dir: -1 });
@@ -84,8 +99,10 @@ export function App() {
       else if (e.key === "Escape") onAction({ type: "back" });
     };
     window.addEventListener("keydown", onKey);
+
     return () => {
       off();
+      window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
     };
   }, []);

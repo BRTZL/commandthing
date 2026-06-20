@@ -19,10 +19,21 @@ export function BoardPage({
 }) {
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Keep the dial-selected card visible.
+  // Keep the dial-selected card visible, with breathing room above/below
+  // (scrollIntoView left it flush to the edge). getBoundingClientRect + manual
+  // scrollTop is reliable on Chromium 69.
   useEffect(() => {
-    const el = listRef.current?.querySelector(".card.selected");
-    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const list = listRef.current;
+    const el = list?.querySelector(".card.selected") as HTMLElement | null;
+    if (!list || !el) return;
+    const margin = 52;
+    const lr = list.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    if (er.bottom + margin > lr.bottom) {
+      list.scrollTop += er.bottom + margin - lr.bottom;
+    } else if (er.top - margin < lr.top) {
+      list.scrollTop -= lr.top - er.top + margin;
+    }
   }, [selected]);
 
   return (
