@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
+import { TABS, type TabId } from "./tabs";
 
 /**
- * Minimal hash router — robust on the device kiosk (no server, no history API
- * quirks). The Car Thing Back button (Esc) maps to goBack().
+ * Hash router. A route is the active tab plus an optional open session (which
+ * lives under the Sessions tab). Robust on the kiosk; the Back button maps to
+ * goBack().
  */
-export type Route = { name: "board" } | { name: "session"; id: string } | { name: "usage" };
+export interface Route {
+  tab: TabId;
+  sessionId: string | null;
+}
 
 function parse(hash: string): Route {
   const h = hash.replace(/^#/, "");
-  if (h.indexOf("/session/") === 0)
-    return { name: "session", id: decodeURIComponent(h.slice("/session/".length)) };
-  if (h === "/usage") return { name: "usage" };
-  return { name: "board" };
+  if (h.indexOf("/session/") === 0) {
+    return { tab: "sessions", sessionId: decodeURIComponent(h.slice("/session/".length)) };
+  }
+  for (const t of TABS) {
+    if (h === `/${t.id}`) return { tab: t.id, sessionId: null };
+  }
+  return { tab: "sessions", sessionId: null };
 }
 
 export function useRoute(): Route {
@@ -24,18 +32,16 @@ export function useRoute(): Route {
   return route;
 }
 
-export function navigate(path: string): void {
-  window.location.hash = path;
+export function goToTab(id: TabId): void {
+  window.location.hash = id === "sessions" ? "/" : `/${id}`;
 }
 
+export function openSession(id: string): void {
+  window.location.hash = `/session/${encodeURIComponent(id)}`;
+}
+
+/** Back button: detail → sessions board; any other tab → sessions board. */
 export function goBack(): void {
-  // Two-level app: anything that isn't the board returns to the board.
-  if (window.location.hash && window.location.hash !== "#/" && window.location.hash !== "") {
-    navigate("/");
-  }
-}
-
-export function isHome(): boolean {
-  const h = window.location.hash.replace(/^#/, "");
-  return h === "" || h === "/";
+  const r = parse(window.location.hash);
+  if (r.sessionId || r.tab !== "sessions") window.location.hash = "/";
 }

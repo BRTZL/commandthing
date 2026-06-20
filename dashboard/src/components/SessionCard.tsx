@@ -4,16 +4,20 @@ import { relativeTime, shortModel } from "../format";
 export function SessionCard({
   session,
   now,
+  selected,
   onClick,
 }: {
   session: ClaudeSession;
   now: number;
+  selected?: boolean;
   onClick?: () => void;
 }) {
   const model = shortModel(session.model);
   return (
     <div
-      className={`card state-${session.state} ${session.needsInput ? "needs-input" : ""} ${onClick ? "clickable" : ""}`}
+      className={`card state-${session.state} ${session.needsInput ? "needs-input" : ""} ${
+        selected ? "selected" : ""
+      } ${onClick ? "clickable" : ""}`}
       onClick={onClick}
     >
       <span className="card-bar" />

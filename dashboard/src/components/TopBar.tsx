@@ -1,39 +1,44 @@
 import type { DashboardState } from "../dashboardTypes";
-import { clockDate, clockTime } from "../format";
-import { goBack, isHome, navigate } from "../router";
+import { clockTime } from "../format";
+import { goToTab, type Route } from "../router";
+import { TABS } from "../tabs";
 
 export function TopBar({
   state,
   connected,
   now,
+  route,
 }: {
   state: DashboardState;
   connected: boolean;
   now: number;
+  route: Route;
 }) {
   const clock = new Date(now);
   const waiting = state.sessions.filter((s) => s.needsInput).length;
-  const home = isHome();
 
   return (
     <header className="topbar">
-      <div className="topbar-left">
-        {!home && (
-          <button type="button" className="back-btn" onClick={goBack} aria-label="Back">
-            ‹
+      <nav className="tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`tab ${route.tab === t.id ? "active" : ""}`}
+            onClick={() => goToTab(t.id)}
+          >
+            <span className="tab-num">{t.preset}</span>
+            <span className="tab-label">{t.label}</span>
           </button>
-        )}
-        <div className="clock" onClick={() => navigate("/")}>
-          <span className="clock-time">{clockTime(clock)}</span>
-          <span className="clock-date">{clockDate(clock)}</span>
-        </div>
-      </div>
+        ))}
+      </nav>
+
       <div className="topbar-right">
-        {waiting > 0 && <span className="waiting-pill">{waiting} waiting on you</span>}
-        <button type="button" className="usage-meter" onClick={() => navigate("/usage")}>
-          <span className="usage-spark">$</span>
-          <span className="usage-dollar">{state.usage ? state.usage.todayLabel : "usage"}</span>
+        {waiting > 0 && <span className="waiting-pill">{waiting} waiting</span>}
+        <button type="button" className="cost" onClick={() => goToTab("usage")}>
+          {state.usage ? state.usage.todayLabel : "—"}
         </button>
+        <span className="clock-time">{clockTime(clock)}</span>
         <span className={`conn ${connected ? "on" : "off"}`} title={connected ? "live" : "offline"}>
           <span className="conn-dot" />
         </span>

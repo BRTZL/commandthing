@@ -3,7 +3,7 @@ import { client } from "../client";
 import type { SessionDetail, SessionTimelineItem } from "../dashboardTypes";
 import { shortModel } from "../format";
 
-export function SessionPage({ id, now: _now }: { id: string; now: number }) {
+export function SessionPage({ id }: { id: string }) {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +73,7 @@ export function SessionPage({ id, now: _now }: { id: string; now: number }) {
         </div>
       </div>
 
-      <div className="sd-body">
+      <div className="sd-body dial-scroll">
         {items.length === 0 && <div className="empty">No activity yet</div>}
         {items.map((it) => (
           <TimelineRow key={it.id} it={it} />

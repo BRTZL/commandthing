@@ -49,24 +49,10 @@ export interface ClaudeSession {
   stateSource: "file" | "hook";
 }
 
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  /** Epoch ms. */
-  start: number;
-  /** Epoch ms. */
-  end: number;
-  allDay: boolean;
-  location: string | null;
-}
-
 export interface DashboardState {
   generatedAt: number;
   host: string;
   sessions: ClaudeSession[];
-  calendar: CalendarEvent[];
-  /** Where the calendar data came from, so the UI can flag mock data. */
-  calendarSource: "mock" | "google";
   /** AI spend/usage across providers (from the local Open Usage API). */
   usage: UsageSummary | null;
 }
@@ -76,8 +62,6 @@ export function emptyState(host = "unknown"): DashboardState {
     generatedAt: 0,
     host,
     sessions: [],
-    calendar: [],
-    calendarSource: "mock",
     usage: null,
   };
 }

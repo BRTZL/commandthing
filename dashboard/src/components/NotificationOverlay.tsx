@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClaudeSession } from "../dashboardTypes";
-import { navigate } from "../router";
+import { openSession } from "../router";
 
 /**
  * Watches for sessions transitioning INTO needs-you and raises a tappable toast
@@ -49,7 +49,7 @@ export function NotificationOverlay({
     <div
       className="toast"
       onClick={() => {
-        navigate(`/session/${alert.id}`);
+        openSession(alert.id);
         setAlert(null);
       }}
     >

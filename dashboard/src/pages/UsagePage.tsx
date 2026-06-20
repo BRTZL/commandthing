@@ -1,6 +1,6 @@
 import type { UsageLine, UsageProvider, UsageSummary } from "../dashboardTypes";
 
-export function UsagePage({ usage, now: _now }: { usage: UsageSummary | null; now: number }) {
+export function UsagePage({ usage }: { usage: UsageSummary | null }) {
   if (!usage) {
     return (
       <div className="page-pad">
@@ -26,7 +26,7 @@ export function UsagePage({ usage, now: _now }: { usage: UsageSummary | null; no
         <span className="usage-today">{usage.todayLabel}</span>
         <span className="usage-sub">across {usage.providers.length} providers</span>
       </div>
-      <div className="usage-providers">
+      <div className="usage-providers dial-scroll">
         {usage.providers.map((p) => (
           <ProviderCard key={p.providerId} p={p} />
         ))}

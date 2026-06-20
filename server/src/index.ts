@@ -3,7 +3,7 @@
  *
  * Responsibilities:
  *  - Watch ~/.claude for live sessions (claudeWatcher) + accept hook signals.
- *  - Pull calendar events (mock for now).
+ *  - Poll the local Open Usage API for AI spend.
  *  - Broadcast a DashboardState over a WebSocket using nocturned's event
  *    envelope, so the same dashboard works here and on the Car Thing.
  *  - Optionally serve the built dashboard (dashboard/dist) for browser preview.
@@ -16,7 +16,6 @@ import { hostname } from "node:os";
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { type DashboardState, emptyState, type NocturneEvent, WS_TOPIC } from "../../shared/protocol.ts";
-import { CALENDAR_SOURCE, getCalendar } from "./calendar.ts";
 import { buildSessions } from "./claudeWatcher.ts";
 import { HookStore } from "./hooks.ts";
 import { getSessionDetail } from "./sessionDetail.ts";
@@ -37,8 +36,6 @@ function rebuild(): void {
     generatedAt: now,
     host: hostname(),
     sessions: buildSessions(hooks, now),
-    calendar: getCalendar(now),
-    calendarSource: CALENDAR_SOURCE,
     usage: getUsage(),
   };
   current = next;
@@ -166,5 +163,5 @@ rebuild();
 setInterval(rebuild, POLL_MS);
 
 console.log(`[feeder] http://localhost:${server.port}  ws://localhost:${server.port}/ws`);
-console.log(`[feeder] polling ~/.claude every ${POLL_MS}ms; calendar source = ${CALENDAR_SOURCE}`);
+console.log(`[feeder] polling ~/.claude every ${POLL_MS}ms`);
 console.log(`[feeder] hook receiver: POST http://localhost:${server.port}/hook`);
