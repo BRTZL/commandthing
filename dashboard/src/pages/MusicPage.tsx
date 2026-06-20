@@ -8,19 +8,42 @@ function control(action: string, value?: number): void {
   void client.request("media.control", { action, value }).catch(() => {});
 }
 
-function mmss(sec: number): string {
-  const s = Math.max(0, Math.floor(sec));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${r < 10 ? `0${r}` : r}`;
+function artUrl(np: NowPlaying): string | null {
+  return np.artworkUrl ? `/api/artwork?u=${encodeURIComponent(np.artworkUrl)}` : null;
 }
 
+const ICON_PATH: Record<string, string> = {
+  prev: "M6 6h2v12H6zm3.5 6 8.5 6V6z",
+  next: "M6 18l8.5-6L6 6v12zM16 6h2v12h-2z",
+  play: "M8 5v14l11-7z",
+  pause: "M6 5h4v14H6zm8 0h4v14h-4z",
+};
+
+function MediaIcon({ name, className }: { name: string; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true" role="presentation">
+      <path d={ICON_PATH[name]} />
+    </svg>
+  );
+}
+
+// Layered gradient scrim that keeps lyrics + controls legible over the cover.
+const SCRIM =
+  "radial-gradient(120% 90% at 50% 8%, rgba(0,0,0,0) 38%, rgba(0,0,0,.5) 100%)," +
+  "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.12) 35%, rgba(0,0,0,.85))";
+const LYRIC_FADE = "linear-gradient(180deg, transparent, #000 28%, #000 72%, transparent)";
+
+/**
+ * "Immerse" now-playing: the album art fills the screen, blurred, with the
+ * lyrics floating large and centered and the track + transport at the bottom.
+ * filter:blur is Chromium-69 safe (backdrop-filter is not); offsets use the
+ * longhand top/right/bottom/left (the `inset` shorthand isn't supported there).
+ */
 export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
   const np = nowPlaying;
   const playing = np?.state === "playing";
 
-  // Interpolate playback position between the feeder's ~1s samples so the
-  // progress bar and active lyric move smoothly.
+  // Interpolate playback position between the feeder's ~1s samples.
   const [pos, setPos] = useState(0);
   const base = useRef({ serverPos: 0, at: 0 });
   useEffect(() => {
@@ -46,73 +69,73 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
   }
 
   const pct = np.durationSec > 0 ? Math.min(100, (pos / np.durationSec) * 100) : 0;
-  const artSrc = np.artworkUrl ? `/api/artwork?u=${encodeURIComponent(np.artworkUrl)}` : null;
+  const art = artUrl(np);
 
   return (
     <div className="relative flex w-full flex-1 min-h-0 overflow-hidden">
-      {/* full-bleed blurred album art + dark scrim (filter:blur works on Chromium
-          69; backdrop-filter doesn't). Scaled up so the blur's soft edges stay
-          off-screen. */}
-      {artSrc && (
+      {/* full-bleed blurred cover (expanded so the blur's soft edges stay off-screen) */}
+      {art && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url("${artSrc}")`, filter: "blur(40px)", transform: "scale(1.25)" }}
+          className="pointer-events-none absolute bg-cover bg-center"
+          style={{
+            top: -50,
+            right: -50,
+            bottom: -50,
+            left: -50,
+            backgroundImage: `url("${art}")`,
+            filter: "blur(26px)",
+            transform: "scale(1.12)",
+          }}
         />
       )}
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-background/80" />
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SCRIM }} />
 
-      {/* foreground */}
-      <div className="relative flex w-full flex-1 min-h-0 p-5">
-        {/* left: art + meta + transport */}
-        <div className="flex w-64 flex-none flex-col">
-          {artSrc ? (
-            <img
-              src={artSrc}
-              alt=""
-              className="h-36 w-36 flex-none self-center rounded-xl object-cover shadow-xl"
-            />
-          ) : (
-            <div className="h-36 w-36 self-center rounded-xl bg-secondary" />
-          )}
-          <div className="mt-4 truncate text-xl font-bold">{np.title}</div>
-          <div className="truncate text-base text-muted-foreground">{np.artist}</div>
+      {/* lyrics */}
+      <Lyrics np={np} pos={pos} />
 
-          <div className="mt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/20">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-            </div>
-            <div className="mt-1 flex justify-between text-xs tabular-nums text-muted-foreground">
-              <span>{mmss(pos)}</span>
-              <span>{mmss(np.durationSec)}</span>
-            </div>
+      {/* track + transport */}
+      <div className="absolute bottom-9 left-10 right-10 flex items-center">
+        <div className="min-w-0 flex-1">
+          <div
+            className="truncate text-2xl font-extrabold"
+            style={{ textShadow: "0 2px 14px rgba(0,0,0,.6)" }}
+          >
+            {np.title}
           </div>
-
-          <div className="mt-3 flex items-center justify-center space-x-3">
-            <Button variant="ghost" size="icon" onClick={() => control("previous")}>
-              ⏮
-            </Button>
-            <Button variant="secondary" size="icon" onClick={() => control("playpause")}>
-              {playing ? "⏸" : "▶"}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => control("next")}>
-              ⏭
-            </Button>
-          </div>
-
-          <div className="mt-3 flex items-center text-muted-foreground">
-            <span className="mr-2 text-sm">VOL</span>
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/20">
-              <div className="h-full rounded-full bg-muted-foreground" style={{ width: `${np.volume}%` }} />
-            </div>
-            <span className="ml-2 text-xs tabular-nums">{np.volume}</span>
-          </div>
+          <div className="truncate text-base text-foreground/75">{np.artist}</div>
         </div>
-
-        {/* right: synced lyrics */}
-        <div className="relative ml-6 flex-1 min-h-0 overflow-hidden">
-          <Lyrics np={np} pos={pos} />
+        <div className="ml-4 flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => control("previous")}
+            className="h-12 w-12 text-foreground hover:bg-foreground/10"
+          >
+            <MediaIcon name="prev" className="h-6 w-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => control("playpause")}
+            className="mx-2 h-14 w-14 rounded-full border-2 border-foreground/50 bg-foreground/15 text-foreground hover:bg-foreground/25"
+          >
+            <MediaIcon name={playing ? "pause" : "play"} className="h-7 w-7" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => control("next")}
+            className="h-12 w-12 text-foreground hover:bg-foreground/10"
+          >
+            <MediaIcon name="next" className="h-6 w-6" />
+          </Button>
         </div>
+      </div>
+
+      {/* progress hairline at the very bottom edge */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-foreground/20">
+        <div className="h-full bg-foreground" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -122,7 +145,6 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   const scroller = useRef<HTMLDivElement>(null);
   const lines = np.lyrics;
 
-  // Active line = last line whose timestamp has passed.
   let active = -1;
   if (lines) {
     for (let i = 0; i < lines.length; i++) {
@@ -131,7 +153,6 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
     }
   }
 
-  // Center the active line (manual scrollTop is reliable on Chromium 69).
   useEffect(() => {
     const box = scroller.current;
     if (!box || active < 0) return;
@@ -140,33 +161,41 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
     box.scrollTop = el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
   }, [active]);
 
-  if (!np.lyricsLoaded) {
+  // No (or not-yet-loaded) lyrics → show the sharp cover, centered.
+  if (!np.lyricsLoaded || !lines || lines.length === 0) {
+    const art = artUrl(np);
     return (
-      <div className="flex h-full items-center justify-center text-base text-muted-foreground">
-        Loading lyrics…
-      </div>
-    );
-  }
-  if (!lines || lines.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-base text-muted-foreground">
-        No synced lyrics for this track
+      <div className="absolute bottom-36 left-0 right-0 top-20 flex flex-col items-center justify-center">
+        {art && <img src={art} alt="Album art" className="h-48 w-48 rounded-2xl object-cover shadow-2xl" />}
+        <div className="mt-5 text-base text-foreground/60">
+          {np.lyricsLoaded ? "No synced lyrics" : "Loading lyrics…"}
+        </div>
       </div>
     );
   }
 
   return (
-    <div ref={scroller} className="dial-scroll h-full overflow-y-auto py-24 [&::-webkit-scrollbar]:w-0">
-      {lines.map((l, i) => (
-        <p
-          key={`${l.t}:${l.text}`}
-          data-line={i}
-          data-active={i === active ? "true" : undefined}
-          className="px-1 py-1.5 text-lg leading-snug text-muted-foreground/50 data-[active=true]:font-bold data-[active=true]:text-foreground"
-        >
-          {l.text || "♪"}
-        </p>
-      ))}
+    <div
+      ref={scroller}
+      className="dial-scroll absolute bottom-36 left-0 right-0 top-20 overflow-y-auto text-center [&::-webkit-scrollbar]:w-0"
+      style={{
+        WebkitMaskImage: LYRIC_FADE,
+        maskImage: LYRIC_FADE,
+        textShadow: "0 2px 16px rgba(0,0,0,.55)",
+      }}
+    >
+      <div className="py-24">
+        {lines.map((l, i) => (
+          <p
+            key={`${l.t}:${l.text}`}
+            data-line={i}
+            data-active={i === active ? "true" : undefined}
+            className="px-12 py-1.5 text-3xl font-bold leading-snug text-foreground/30 data-[active=true]:text-foreground"
+          >
+            {l.text || "♪"}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
