@@ -115,8 +115,8 @@ These don't block software dev; resolve before the device phase:
 
 ## Deploy to the device
 
-See **[docs/DEVICE-BRINGUP.md](docs/DEVICE-BRINGUP.md)** for the full Mac-only
-build-and-flash plan: a custom Nocturne image with the USB gadget switched
-RNDIS→NCM (so macOS gets native USB networking), flashed via Terbium, with the
-kiosk pointed at this Mac's feeder (thin client — UI changes need only a rebuild,
-no reflash).
+See **[docs/DEVICE-BRINGUP.md](docs/DEVICE-BRINGUP.md)** for the Mac bring-up:
+flash **Thing Labs OS** (runs `adbd`, which macOS speaks natively), `adb reverse
+tcp:4000 tcp:4000`, and point the kiosk at `http://localhost:4000` — the device
+tunnels to this Mac's feeder over USB. No RNDIS, no custom firmware build, no Pi.
+The production build is Chromium-69-safe (legacy-only SystemJS bundle).
