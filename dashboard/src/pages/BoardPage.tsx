@@ -37,10 +37,12 @@ export function BoardPage({
   }, [selected]);
 
   return (
-    <main className="board">
-      <div className="session-list dial-scroll" ref={listRef}>
+    <main className="flex flex-col min-h-0 px-[14px] py-3">
+      <div className="overflow-y-auto min-h-0 pb-[52px] [&::-webkit-scrollbar]:w-0 dial-scroll" ref={listRef}>
         {sessions.length === 0 && (
-          <div className="empty">{connected ? "No active sessions" : "Connecting to feeder…"}</div>
+          <div className="text-muted text-[17px] text-center py-10 px-3">
+            {connected ? "No active sessions" : "Connecting to feeder…"}
+          </div>
         )}
         {sessions.map((s, i) => (
           <SessionCard
