@@ -45,6 +45,12 @@
   body {
     height: 100%;
   }
+  /* Global UI scale knob. Tailwind's text + spacing are rem-based, so the root
+     font-size scales the whole dashboard at once; the fixed 800x480 device shell
+     is px (w/h-device) and stays full-screen. 16px = default; bump to taste. */
+  html {
+    font-size: 18px;
+  }
   body {
     background: hsl(var(--background));
     color: hsl(var(--foreground));
