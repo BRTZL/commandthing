@@ -57,7 +57,8 @@
       },
       "suspicious": {
         "noExplicitAny": "off",
-        "noArrayIndexKey": "error"
+        "noArrayIndexKey": "error",
+        "noUnknownAtRules": "off"
       }
     }
   },

@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn-style HSL design tokens (bare "H S% L%" triplets so hsl(var(--x)) and
+   Tailwind alpha modifiers like bg-accent/30 work). Chromium-69-safe — no oklch. */
+:root {
+  --background: 228 18% 5%;
+  --card: 228 20% 10%;
+  --card-2: 228 21% 13%;
+  --border: 226 18% 20%;
+  --foreground: 226 31% 95%;
+  --muted: 226 13% 62%;
+  --accent: 221 89% 72%;
+  --working: 152 69% 55%;
+  --waiting: 39 92% 63%;
+  --idle: 225 11% 40%;
+}

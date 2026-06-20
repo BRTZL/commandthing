@@ -24,7 +24,7 @@ export function BoardPage({
   // scrollTop is reliable on Chromium 69.
   useEffect(() => {
     const list = listRef.current;
-    const el = list?.querySelector(".card.selected") as HTMLElement | null;
+    const el = list?.querySelector("[data-selected='true']") as HTMLElement | null;
     if (!list || !el) return;
     const margin = 52;
     const lr = list.getBoundingClientRect();
