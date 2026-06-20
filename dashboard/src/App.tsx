@@ -120,9 +120,9 @@ export function App() {
   );
 
   return (
-    <div className="device">
+    <div className="relative mx-auto flex h-device w-device flex-col overflow-hidden bg-background">
       <TopBar state={state} connected={connected} now={now} route={route} />
-      <div className="page">
+      <div className="flex min-h-0 flex-1">
         <Routes>
           <Route path="/" element={board} />
           <Route path="/usage" element={<UsagePage usage={state.usage} />} />

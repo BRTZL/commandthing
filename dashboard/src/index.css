@@ -2,17 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* shadcn-style HSL design tokens (bare "H S% L%" triplets so hsl(var(--x)) and
-   Tailwind alpha modifiers like bg-accent/30 work). Chromium-69-safe — no oklch. */
+/* Design tokens — shadcn-style HSL triplets (bare "H S% L%" so hsl(var(--x)) and
+   Tailwind alpha modifiers like bg-accent/30 work). Chromium-69-safe (no oklch).
+   Every color the UI uses lives here; components reference tokens, never hex. */
 :root {
   --background: 228 18% 5%;
+  --foreground: 226 31% 95%;
+  --foreground-dim: 226 14% 84%;
+
   --card: 228 20% 10%;
   --card-2: 228 21% 13%;
+  --card-selected: 227 23% 15%;
+  --surface-2: 224 20% 21%;
+
   --border: 226 18% 20%;
-  --foreground: 226 31% 95%;
   --muted: 226 13% 62%;
   --accent: 221 89% 72%;
+
+  /* dark ink for text on bright (accent/state) badges */
+  --ink: 228 30% 6%;
+
   --working: 152 69% 55%;
   --waiting: 39 92% 63%;
   --idle: 225 11% 40%;
+  --thinking: 265 84% 75%;
+  --destructive: 358 75% 59%;
+  --destructive-foreground: 359 100% 81%;
+
+  --toast: 41 58% 8%;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
 }

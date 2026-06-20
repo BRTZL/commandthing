@@ -1,5 +1,6 @@
 import type { DashboardState } from "../dashboardTypes";
 import { clockTime } from "../format";
+import { cn } from "../lib/cn";
 import { goToTab, type Route } from "../router";
 import { TABS } from "../tabs";
 
@@ -18,50 +19,40 @@ export function TopBar({
   const waiting = state.sessions.filter((s) => s.needsInput).length;
 
   return (
-    <header className="h-[74px] flex-none flex items-center justify-between px-4 border-b border-border">
+    <header className="flex h-18.5 flex-none items-center justify-between border-b border-border px-4">
       <nav className="flex items-center">
-        {TABS.map((t) => {
-          const isActive = route.tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              className={`flex items-center h-[46px] px-4 pl-3 mr-2 border rounded-[12px] cursor-pointer ${
-                isActive
-                  ? "bg-card-2 border-border text-foreground"
-                  : "bg-transparent border-transparent text-muted"
-              }`}
-              onClick={() => goToTab(t.id)}
-            >
-              <span
-                className={`inline-flex items-center justify-center w-[22px] h-[22px] mr-[9px] rounded-[7px] text-[13px] font-bold ${
-                  isActive ? "bg-accent text-[#0b0c10]" : "bg-[#2b3040] text-muted"
-                }`}
-              >
-                {t.preset}
-              </span>
-              <span className="text-[17px] font-semibold">{t.label}</span>
-            </button>
-          );
-        })}
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            data-active={route.tab === t.id ? "true" : undefined}
+            onClick={() => goToTab(t.id)}
+            className="group mr-2 flex h-11.5 cursor-pointer items-center rounded-lg border border-transparent pl-3 pr-4 text-muted data-[active=true]:border-border data-[active=true]:bg-card-2 data-[active=true]:text-foreground"
+          >
+            <span className="mr-2.25 inline-flex h-5.5 w-5.5 items-center justify-center rounded-md bg-surface-2 text-sm font-bold text-muted group-data-[active=true]:bg-accent group-data-[active=true]:text-ink">
+              {t.preset}
+            </span>
+            <span className="text-lg font-semibold">{t.label}</span>
+          </button>
+        ))}
       </nav>
 
       <div className="flex items-center">
         {waiting > 0 && (
-          <span className="text-[13px] font-bold text-[#1a1205] bg-waiting px-[11px] py-[6px] rounded-full mr-3 animate-pulse">
+          <span className="mr-3 animate-pulse rounded-full bg-waiting px-2.75 py-1.5 text-sm font-bold text-ink">
             {waiting} waiting
           </span>
         )}
         <button
           type="button"
-          className="text-[15px] font-semibold text-foreground bg-card-2 border border-border rounded-full py-[7px] px-[13px] mr-[14px] cursor-pointer tabular-nums"
           onClick={() => goToTab("usage")}
+          className="mr-3.5 cursor-pointer rounded-full border border-border bg-card-2 px-3.25 py-1.75 text-base font-semibold tabular-nums text-foreground"
         >
           {state.usage ? state.usage.todayLabel : "—"}
         </button>
-        <span className="text-[20px] font-semibold mr-3 tabular-nums">{clockTime(clock)}</span>
+        <span className="mr-3 text-xl font-semibold tabular-nums">{clockTime(clock)}</span>
         <span className="flex items-center" title={connected ? "live" : "offline"}>
-          <span className={`w-[11px] h-[11px] rounded-full ${connected ? "bg-working" : "bg-[#e5484d]"}`} />
+          <span className={cn("h-2.75 w-2.75 rounded-full", connected ? "bg-working" : "bg-destructive")} />
         </span>
       </div>
     </header>

@@ -37,10 +37,10 @@ export function BoardPage({
   }, [selected]);
 
   return (
-    <main className="flex flex-col min-h-0 px-[14px] py-3">
-      <div className="overflow-y-auto min-h-0 pb-[52px] [&::-webkit-scrollbar]:w-0 dial-scroll" ref={listRef}>
+    <main className="flex w-full flex-1 flex-col min-h-0 px-3.5 py-3">
+      <div className="dial-scroll min-h-0 overflow-y-auto pb-13 [&::-webkit-scrollbar]:w-0" ref={listRef}>
         {sessions.length === 0 && (
-          <div className="text-muted text-[17px] text-center py-10 px-3">
+          <div className="px-3 py-10 text-center text-lg text-muted">
             {connected ? "No active sessions" : "Connecting to feeder…"}
           </div>
         )}

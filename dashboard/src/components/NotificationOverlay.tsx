@@ -6,6 +6,9 @@ import { openSession } from "../router";
  * Watches for sessions transitioning INTO needs-you and raises a tappable toast
  * (plus a soft beep) so you notice from across the room. Tapping opens the
  * session. Pre-existing waiting sessions on first load do NOT alert.
+ *
+ * (Self-managed rather than sonner — sonner's CSS/runtime doesn't render
+ * reliably on the device's Chromium 69.)
  */
 export function NotificationOverlay({
   sessions,
@@ -21,8 +24,6 @@ export function NotificationOverlay({
   const [alert, setAlert] = useState<{ id: string; project: string } | null>(null);
 
   useEffect(() => {
-    // Don't establish the baseline from the synthetic empty state, or every
-    // already-waiting session would look "new" on the first real payload.
     if (!ready) return;
 
     const waiting = sessions.filter((s) => s.needsInput);
@@ -46,19 +47,20 @@ export function NotificationOverlay({
 
   if (!alert) return null;
   return (
-    <div
-      className="toast"
+    <button
+      type="button"
       onClick={() => {
         openSession(alert.id);
         setAlert(null);
       }}
+      className="absolute bottom-4.5 left-1/2 flex w-95 -translate-x-1/2 items-center rounded-xl border border-waiting bg-toast px-4 py-3.5 text-left shadow-xl"
     >
-      <span className="toast-dot" />
-      <span className="toast-text">
+      <span className="mr-3 h-2.75 w-2.75 animate-pulse rounded-full bg-waiting" />
+      <span className="text-md text-foreground">
         <b>{alert.project}</b> needs you
       </span>
-      <span className="toast-cta">view ›</span>
-    </div>
+      <span className="ml-auto text-base font-semibold text-waiting">view ›</span>
+    </button>
   );
 }
 

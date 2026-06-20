@@ -1,8 +1,8 @@
 export function PlaceholderPage({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="flex-1 w-full flex flex-col items-center justify-center">
-      <div className="text-[30px] font-bold">{title}</div>
-      <div className="text-[17px] text-muted mt-2">{subtitle}</div>
+    <div className="flex w-full flex-1 flex-col items-center justify-center">
+      <div className="text-3xl font-bold">{title}</div>
+      <div className="mt-2 text-lg text-muted">{subtitle}</div>
     </div>
   );
 }
