@@ -26,3 +26,5 @@ Thumbs.db
 
 # Screenshots / scratch artifacts
 dashboard/*.png
+device-shot.png
+*-shot.png

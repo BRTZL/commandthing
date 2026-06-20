@@ -43,9 +43,12 @@ bun run preview            # builds the UI, starts the feeder
 
 # Option B — live dev (HMR)
 bun run feeder             # terminal 1: feeder on :4000 (WS at /ws)
-bun run ui                 # terminal 2: Vite dev server on :5173
+bun run ui                 # terminal 2: Vite dev server on :5173 (auto-points at the feeder)
 # open http://localhost:5173
 ```
+
+For the full script reference, the device deploy loop, and the Chromium-69
+coding rules, see **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 
 Useful endpoints on the feeder (`:4000`): `/health`, `/state` (JSON snapshot),
 `/ws` (the live feed), `POST /hook` (Claude hook receiver), and HTTP debug
@@ -115,8 +118,18 @@ These don't block software dev; resolve before the device phase:
 
 ## Deploy to the device
 
-See **[docs/DEVICE-BRINGUP.md](docs/DEVICE-BRINGUP.md)** for the Mac bring-up:
-flash **Thing Labs OS** (runs `adbd`, which macOS speaks natively), `adb reverse
-tcp:4000 tcp:4000`, and point the kiosk at `http://localhost:4000` — the device
-tunnels to this Mac's feeder over USB. No RNDIS, no custom firmware build, no Pi.
-The production build is Chromium-69-safe (legacy-only SystemJS bundle).
+One-time bring-up (flashing **Thing Labs OS**, kiosk setup): see
+**[docs/DEVICE-BRINGUP.md](docs/DEVICE-BRINGUP.md)**. The device tunnels to this
+Mac's feeder over USB (`adb reverse tcp:4000`) and loads `http://localhost:4000`
+— no RNDIS, no custom firmware build, no Pi. The production build is
+Chromium-69-safe (legacy-only SystemJS bundle).
+
+Once it's flashed, the everyday loop is three commands (full details in
+**[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**):
+
+```bash
+bun run device:connect     # terminal 1: keep the USB tunnel armed
+bun run feeder             # terminal 2: the data server
+bun run deploy             # build + reload the kiosk (repeat on each change)
+bun run device:shot        # screenshot the screen -> device-shot.png
+```
