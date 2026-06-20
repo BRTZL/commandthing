@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClaudeSession } from "../dashboardTypes";
 import { openSession } from "../router";
+import { Button } from "./ui/button";
 
 /**
  * Watches for sessions transitioning INTO needs-you and raises a tappable toast
@@ -47,20 +48,20 @@ export function NotificationOverlay({
 
   if (!alert) return null;
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={() => {
         openSession(alert.id);
         setAlert(null);
       }}
-      className="absolute bottom-4 left-1/2 flex w-96 -translate-x-1/2 items-center rounded-xl border border-waiting bg-card px-4 py-3 text-left shadow-xl"
+      className="absolute bottom-4 left-1/2 h-auto w-96 -translate-x-1/2 justify-start rounded-xl border border-waiting bg-card px-4 py-3 text-left font-normal shadow-xl hover:bg-card"
     >
       <span className="mr-3 h-2.5 w-2.5 animate-pulse rounded-full bg-waiting" />
       <span className="text-base text-foreground">
         <b>{alert.project}</b> needs you
       </span>
       <span className="ml-auto text-base font-semibold text-waiting">view ›</span>
-    </button>
+    </Button>
   );
 }
 

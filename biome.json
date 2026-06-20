@@ -91,5 +91,24 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["dashboard/src/**/*.tsx", "!dashboard/src/components/ui/button.tsx"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noRestrictedElements": {
+              "level": "error",
+              "options": {
+                "elements": {
+                  "button": "Use the <Button> component from src/components/ui/button instead of a raw <button>. A native <button> mis-renders on the device's Chromium 69 (gray buttonface fill + blue focus outline)."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

@@ -1,5 +1,6 @@
 import type { ClaudeSession } from "../dashboardTypes";
 import { relativeTime, shortModel } from "../format";
+import { Badge } from "./ui/badge";
 
 export function SessionCard({
   session,
@@ -27,14 +28,17 @@ export function SessionCard({
         <div className="flex items-center">
           <span className="text-2xl font-bold text-foreground">{session.project}</span>
           {session.gitBranch && session.gitBranch !== "HEAD" && (
-            <span className="ml-2.5 rounded-md bg-primary/15 px-2 py-0.5 font-mono text-sm text-primary">
+            <Badge
+              variant="outline"
+              className="ml-2.5 border-transparent bg-primary/15 font-mono text-sm font-normal text-primary"
+            >
               {session.gitBranch}
-            </span>
+            </Badge>
           )}
           {session.needsInput && (
-            <span className="ml-auto rounded-full bg-waiting px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary-foreground">
+            <Badge variant="waiting" className="ml-auto rounded-full uppercase tracking-wide">
               needs you
-            </span>
+            </Badge>
           )}
         </div>
         <div className="mt-1.5 truncate text-base text-foreground/80">

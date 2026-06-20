@@ -121,7 +121,7 @@ export function App() {
 
   return (
     <div className="relative mx-auto flex h-device w-device flex-col overflow-hidden bg-background">
-      <TopBar state={state} connected={connected} now={now} route={route} />
+      <TopBar route={route} />
       <div className="flex min-h-0 flex-1">
         <Routes>
           <Route path="/" element={board} />

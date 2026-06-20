@@ -1,3 +1,4 @@
+import { Card } from "../components/ui/card";
 import type { UsageLine, UsageProvider, UsageSummary } from "../dashboardTypes";
 import { cn } from "../lib/cn";
 
@@ -43,7 +44,7 @@ function ProviderCard({ p }: { p: UsageProvider }) {
   const texts = p.lines.filter((l) => l.type === "text");
   const chart = p.lines.find((l) => l.type === "barChart");
   return (
-    <section className="rounded-xl border border-border bg-card px-4 py-3">
+    <Card className="px-4 py-3">
       <div className="mb-3 flex items-baseline justify-between">
         <span className="text-lg font-bold">{p.displayName}</span>
         {p.plan && <span className="text-sm text-muted-foreground">{p.plan}</span>}
@@ -69,7 +70,7 @@ function ProviderCard({ p }: { p: UsageProvider }) {
       {chart?.points && chart.points.length > 0 && (
         <BarChart points={chart.points} color={chart.color ?? "hsl(var(--primary))"} />
       )}
-    </section>
+    </Card>
   );
 }
 

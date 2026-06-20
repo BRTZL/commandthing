@@ -45,7 +45,5 @@ export function Button({
   type = "button",
   ...props
 }: ButtonProps) {
-  return (
-    <button type={type} className={cn(base, variants[variant], sizes[size], className)} {...props} />
-  );
+  return <button type={type} className={cn(base, variants[variant], sizes[size], className)} {...props} />;
 }
