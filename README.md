@@ -113,9 +113,10 @@ These don't block software dev; resolve before the device phase:
    nocturned's `websocket.rs` relays the custom `dashboard.update` topic (vs.
    only known ones). Fallback: reuse the already-wired `notification.show`.
 
-## Deploy to the device (later)
+## Deploy to the device
 
-1. Build the UI for the device URL: `VITE_WS_URL=ws://localhost:5000 bun run ui:build`.
-2. Either point Nocturne's kiosk at it (`NOCTURNE_CHROMIUM_URL`) or drop `dist/`
-   into `/etc/nocturne/ui` and `supervisorctl restart chromium`.
-3. Run the feeder on the Mac and bridge it to nocturned via the chosen transport.
+See **[docs/DEVICE-BRINGUP.md](docs/DEVICE-BRINGUP.md)** for the full Mac-only
+build-and-flash plan: a custom Nocturne image with the USB gadget switched
+RNDIS→NCM (so macOS gets native USB networking), flashed via Terbium, with the
+kiosk pointed at this Mac's feeder (thin client — UI changes need only a rebuild,
+no reflash).
