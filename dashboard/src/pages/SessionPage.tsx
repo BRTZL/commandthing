@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { client } from "../client";
 import type { SessionDetail, SessionTimelineItem } from "../dashboardTypes";
 import { shortModel } from "../format";
+import { cn } from "../lib/cn";
 
 const CHIP = "mb-2 mr-2 rounded-md border border-border bg-secondary px-2 py-0.5 text-sm";
 const TAG = "rounded-md border bg-secondary px-2 py-0.5 text-xs font-bold";
@@ -62,20 +63,20 @@ export function SessionPage({ id }: { id: string }) {
         </div>
         {detail.title && <div className="mt-1 text-base text-muted-foreground">{detail.title}</div>}
         <div className="mt-2.5 flex flex-wrap">
-          {model && <span className={`${CHIP} text-foreground`}>{model}</span>}
+          {model && <span className={cn(CHIP, "text-foreground")}>{model}</span>}
           {detail.gitBranch && detail.gitBranch !== "HEAD" && (
-            <span className={`${CHIP} font-mono text-primary`}>{detail.gitBranch}</span>
+            <span className={cn(CHIP, "font-mono text-primary")}>{detail.gitBranch}</span>
           )}
-          <span className={`${CHIP} text-foreground`}>{detail.messageCount} msgs</span>
+          <span className={cn(CHIP, "text-foreground")}>{detail.messageCount} msgs</span>
           {detail.todos.length > 0 && (
-            <span className={`${CHIP} text-foreground`}>
+            <span className={cn(CHIP, "text-foreground")}>
               tasks {todoDone}/{detail.todos.length}
             </span>
           )}
           {Object.keys(detail.toolCounts)
             .sort((a, b) => detail.toolCounts[b] - detail.toolCounts[a])
             .map((k) => (
-              <span key={k} className={`${CHIP} text-muted-foreground`}>
+              <span key={k} className={cn(CHIP, "text-muted-foreground")}>
                 {k} {detail.toolCounts[k]}
               </span>
             ))}
@@ -99,7 +100,7 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
     return (
       <div className={TI}>
         <div className="flex items-center">
-          <span className={`${TAG} border-border uppercase tracking-wide text-waiting`}>tasks</span>
+          <span className={cn(TAG, "border-border uppercase tracking-wide text-waiting")}>tasks</span>
           <span className="ml-2 text-sm text-foreground">Updated task list</span>
         </div>
         <div className="mt-2">
@@ -123,10 +124,13 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
   if (it.kind === "tool") {
     const st = it.tool?.status ?? "pending";
     return (
-      <div className={`${TI} flex items-center`}>
+      <div className={cn(TI, "flex items-center")}>
         <span
           data-status={st}
-          className={`${TAG} border-border font-mono text-foreground data-[status=ok]:border-working/40 data-[status=error]:border-destructive/60 data-[status=error]:text-destructive-foreground`}
+          className={cn(
+            TAG,
+            "border-border font-mono text-foreground data-[status=ok]:border-working/40 data-[status=error]:border-destructive/60 data-[status=error]:text-destructive-foreground",
+          )}
         >
           {it.tool?.name}
         </span>
@@ -149,7 +153,10 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
       <div className="flex items-center">
         <span
           data-kind={it.kind}
-          className={`${TAG} border-border uppercase tracking-wide text-working data-[kind=prompt]:text-primary data-[kind=thinking]:text-thinking`}
+          className={cn(
+            TAG,
+            "border-border uppercase tracking-wide text-working data-[kind=prompt]:text-primary data-[kind=thinking]:text-thinking",
+          )}
         >
           {who}
         </span>
