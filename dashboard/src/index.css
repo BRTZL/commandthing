@@ -56,12 +56,14 @@
     -webkit-tap-highlight-color: transparent;
   }
   /* The device's Chromium-69/QtWebEngine paints a native "buttonface" (light
-     gray) fill on <button> because it honors -webkit-appearance: button. Strip
-     the native appearance so buttons are transparent until a bg-* utility sets a
-     color (utilities still win over this base rule). */
+     gray) fill AND a blue 5px focus outline on <button>, neither of which
+     Tailwind's reset removes there (and :focus-visible doesn't exist pre-Chrome
+     86). Strip the native appearance + default outline so buttons are flat and
+     unstyled until a utility/variant opts in (utilities still win over base). */
   button {
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
+    outline: none;
   }
 }
