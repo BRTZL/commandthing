@@ -1,0 +1,14 @@
+{
+  "name": "carthing-feeder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mac-side feeder: watches Claude Code sessions + calendar, broadcasts to the Car Thing dashboard over a nocturned-compatible WebSocket.",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

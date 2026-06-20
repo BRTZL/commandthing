@@ -1,0 +1,19 @@
+{
+  "name": "spotify-carthing-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Custom Car Thing (Nocturne) dashboard showing Claude Code sessions + calendar, fed from the Mac.",
+  "scripts": {
+    "feeder": "bun run server/src/index.ts",
+    "feeder:dev": "bun --watch run server/src/index.ts",
+    "ui": "cd dashboard && bun run dev",
+    "ui:build": "cd dashboard && bun run build",
+    "preview": "bun run ui:build && bun run feeder",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.0"
+  }
+}
