@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Route, Routes, useParams } from "react-router-dom";
 import { client } from "./client";
 import { NotificationOverlay } from "./components/NotificationOverlay";
 import { TopBar } from "./components/TopBar";
@@ -107,30 +108,36 @@ export function App() {
     };
   }, []);
 
+  const board = (
+    <BoardPage
+      sessions={state.sessions}
+      connected={connected}
+      now={now}
+      selected={selected}
+      onOpen={openSession}
+      onHover={setSelected}
+    />
+  );
+
   return (
     <div className="device">
       <TopBar state={state} connected={connected} now={now} route={route} />
       <div className="page">
-        {route.sessionId ? (
-          <SessionPage id={route.sessionId} />
-        ) : route.tab === "sessions" ? (
-          <BoardPage
-            sessions={state.sessions}
-            connected={connected}
-            now={now}
-            selected={selected}
-            onOpen={openSession}
-            onHover={setSelected}
-          />
-        ) : route.tab === "usage" ? (
-          <UsagePage usage={state.usage} />
-        ) : route.tab === "calendar" ? (
-          <PlaceholderPage title="Calendar" subtitle="Coming soon" />
-        ) : (
-          <PlaceholderPage title="More" subtitle="Coming soon" />
-        )}
+        <Routes>
+          <Route path="/" element={board} />
+          <Route path="/usage" element={<UsagePage usage={state.usage} />} />
+          <Route path="/calendar" element={<PlaceholderPage title="Calendar" subtitle="Coming soon" />} />
+          <Route path="/more" element={<PlaceholderPage title="More" subtitle="Coming soon" />} />
+          <Route path="/session/:id" element={<SessionRoute />} />
+          <Route path="*" element={board} />
+        </Routes>
       </div>
       <NotificationOverlay sessions={state.sessions} ready={state.generatedAt > 0} />
     </div>
   );
+}
+
+function SessionRoute() {
+  const { id } = useParams();
+  return id ? <SessionPage id={id} /> : null;
 }
