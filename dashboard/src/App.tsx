@@ -1,4 +1,4 @@
-import { type WheelEvent, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type WheelEvent } from "react";
 import { Outlet, Route, Routes, useParams } from "react-router-dom";
 import { client } from "./client";
 import { NotificationOverlay } from "./components/NotificationOverlay";

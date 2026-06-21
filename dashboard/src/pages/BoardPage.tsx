@@ -2,11 +2,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { SessionCard } from "../components/SessionCard";
 import { openSession } from "../router";
 import { useConnected, useSessions } from "../store/dashboardStore";
-import {
-  clampSelectedSession,
-  setSelectedSessionIndex,
-  useSelectedSessionIndex,
-} from "../store/uiStore";
+import { clampSelectedSession, setSelectedSessionIndex, useSelectedSessionIndex } from "../store/uiStore";
 
 export function BoardPage() {
   const sessions = useSessions();

@@ -44,11 +44,15 @@ export function connectHardware(onAction: (a: HwAction) => void): () => void {
       if (t === "dial_left") onAction({ type: "dial", dir: -1 });
       else if (t === "dial_right") onAction({ type: "dial", dir: 1 });
       else if (t === "dial_press") onAction({ type: "select" });
-      else if (t === "back_button") onAction({ type: "back" });
-      else if (t === "settings") onAction({ type: "settings" });
+      else if (t === "back_button" || t === "back" || t === "backPress") onAction({ type: "back" });
+      else if (t.indexOf("settings") >= 0 || t.indexOf("menu") >= 0 || t === "m_button")
+        onAction({ type: "settings" });
       else {
         const m = /^preset_([1-4])$/.exec(t);
         if (m) onAction({ type: "tab", preset: Number(m[1]) });
+        // Log anything unrecognized so the exact event name (e.g. the physical
+        // settings button) can be read from the device console.
+        else console.log("[hw] unmapped button event:", t);
       }
     };
     socket.onclose = () => {

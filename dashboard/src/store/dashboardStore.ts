@@ -3,11 +3,11 @@ import { client } from "../client";
 import {
   type ClaudeSession,
   type DashboardState,
+  emptyState,
   type NowPlaying,
   type UsageLine,
   type UsageProvider,
   type UsageSummary,
-  emptyState,
 } from "../dashboardTypes";
 
 interface DashboardSnapshot {
@@ -56,11 +56,19 @@ export function getDashboardState(): DashboardState {
 }
 
 export function useSessions(): ClaudeSession[] {
-  return useSyncExternalStore(subscribeDashboardStore, () => snapshot.state.sessions, () => snapshot.state.sessions);
+  return useSyncExternalStore(
+    subscribeDashboardStore,
+    () => snapshot.state.sessions,
+    () => snapshot.state.sessions,
+  );
 }
 
 export function useUsage(): UsageSummary | null {
-  return useSyncExternalStore(subscribeDashboardStore, () => snapshot.state.usage, () => snapshot.state.usage);
+  return useSyncExternalStore(
+    subscribeDashboardStore,
+    () => snapshot.state.usage,
+    () => snapshot.state.usage,
+  );
 }
 
 export function useNowPlaying(): NowPlaying | null {
@@ -72,7 +80,11 @@ export function useNowPlaying(): NowPlaying | null {
 }
 
 export function useHost(): string {
-  return useSyncExternalStore(subscribeDashboardStore, () => snapshot.state.host, () => snapshot.state.host);
+  return useSyncExternalStore(
+    subscribeDashboardStore,
+    () => snapshot.state.host,
+    () => snapshot.state.host,
+  );
 }
 
 export function useReady(): boolean {
@@ -84,7 +96,11 @@ export function useReady(): boolean {
 }
 
 export function useConnected(): boolean {
-  return useSyncExternalStore(subscribeDashboardStore, () => snapshot.connected, () => snapshot.connected);
+  return useSyncExternalStore(
+    subscribeDashboardStore,
+    () => snapshot.connected,
+    () => snapshot.connected,
+  );
 }
 
 function reconcileDashboardState(prev: DashboardState, next: DashboardState): DashboardState {
