@@ -3,7 +3,7 @@ import { TABS } from "../tabs";
 
 export function TopBar({ route }: { route: Route; floating?: boolean }) {
   return (
-    <header className="z-20 flex h-14 flex-none items-center justify-between absolute top-0 left-0 right-0 bg-transparent">
+    <header className="z-20 flex h-14 flex-none items-center justify-between absolute top-0 left-0 right-0 backdrop-blur-sm">
       <nav className="flex flex-1 items-center px-4 gap-4">
         {TABS.map((t) => (
           <div

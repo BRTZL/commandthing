@@ -44,8 +44,8 @@ export function BoardPage({
         ref={listRef}
       >
         {sessions.length === 0 && (
-          <div className="px-3 py-10 text-center text-lg text-muted-foreground">
-            {connected ? "No active sessions" : "Connecting to feeder…"}
+          <div className="px-3 py-24 text-center text-lg font-medium text-muted-foreground">
+            {connected ? "No active sessions" : "Connecting…"}
           </div>
         )}
         {sessions.map((s, i) => (

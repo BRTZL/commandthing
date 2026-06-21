@@ -62,9 +62,11 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
 
   if (!np || np.state === "stopped") {
     return (
-      <div className="flex w-full flex-1 flex-col items-center justify-center">
-        <div className="text-2xl font-bold">Nothing playing</div>
-        <div className="mt-2 text-base text-muted-foreground">Start a track in Spotify on your Mac</div>
+      <div className="flex w-full flex-1 flex-col items-center justify-center text-center">
+        <div className="flex h-24 w-24 items-center justify-center rounded-full bg-secondary text-5xl text-muted-foreground">
+          ♪
+        </div>
+        <div className="mt-5 text-xl font-semibold text-foreground/80">Nothing playing</div>
       </div>
     );
   }
@@ -200,14 +202,20 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   }, [active]);
 
   // No (or not-yet-loaded) lyrics → show the sharp cover, centered.
+  // No (or not-yet-loaded) lyrics → just show the album cover, beautifully. No
+  // "loading" text — it either fills with lyrics or stays a clean cover view.
   if (!np.lyricsLoaded || !lines || lines.length === 0) {
     const art = artUrl(np);
     return (
-      <div className="absolute bottom-20 left-0 right-0 top-16 flex flex-col items-center justify-center">
-        {art && <img src={art} alt="Album art" className="h-48 w-48 rounded-2xl object-cover shadow-2xl" />}
-        <div className="mt-5 text-base text-foreground/60">
-          {np.lyricsLoaded ? "No synced lyrics" : "Loading lyrics…"}
-        </div>
+      <div className="absolute bottom-20 left-0 right-0 top-16 flex items-center justify-center">
+        {art && (
+          <img
+            src={art}
+            alt={np.title}
+            className="h-56 w-56 rounded-2xl object-cover"
+            style={{ boxShadow: "0 30px 90px rgba(0,0,0,0.55)" }}
+          />
+        )}
       </div>
     );
   }
@@ -228,7 +236,7 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
             key={`${l.t}:${l.text}`}
             data-line={i}
             data-active={i === active ? "true" : undefined}
-            className="px-12 py-1.5 text-3xl font-bold leading-snug text-foreground/30 data-[active=true]:text-foreground"
+            className="px-12 py-2 text-3xl font-bold leading-snug text-foreground/25 transition-colors duration-300 data-[active=true]:text-foreground"
           >
             {l.text || "♪"}
           </p>
