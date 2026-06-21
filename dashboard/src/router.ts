@@ -36,8 +36,23 @@ export function openSession(id: string): void {
   window.location.hash = `/session/${encodeURIComponent(id)}`;
 }
 
-/** Back button: detail → board; any other tab → board. */
+export function goToSettings(): void {
+  window.location.hash = "/settings";
+}
+
+/** Is the current path a standalone page (no tab header)? */
+export function isStandalone(pathname: string): boolean {
+  return pathname.indexOf("/session/") === 0 || pathname === "/settings";
+}
+
+/** Back: from a standalone page (session detail / settings) return to wherever
+    you came from; from a non-board tab, go to the board. */
 export function goBack(): void {
-  const r = parse(window.location.hash.replace(/^#/, ""));
-  if (r.sessionId || r.tab !== "sessions") window.location.hash = "/";
+  const path = window.location.hash.replace(/^#/, "");
+  if (isStandalone(path)) {
+    window.history.back();
+    return;
+  }
+  const r = parse(path);
+  if (r.tab !== "sessions") window.location.hash = "/";
 }

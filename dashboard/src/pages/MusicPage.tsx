@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { client } from "../client";
 import { Button } from "../components/ui/button";
 import type { NowPlaying } from "../dashboardTypes";
+import { useSettings } from "../settings";
 
 /** Send a transport/volume command to Spotify via the feeder. */
 function control(action: string, value?: number): void {
@@ -32,10 +33,6 @@ const SCRIM =
   "radial-gradient(120% 90% at 50% 8%, rgba(0,0,0,0) 38%, rgba(0,0,0,.5) 100%)," +
   "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.12) 35%, rgba(0,0,0,.85))";
 const LYRIC_FADE = "linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent)";
-// Highlight lines slightly early to compensate for sampling + WS latency on the
-// device (the feeder samples Spotify's position ~once a second). Bump if lyrics
-// still feel late, lower if they get ahead.
-const LYRIC_LEAD_SEC = 0.5;
 
 /**
  * "Immerse" now-playing: the album art fills the screen, blurred, with the
@@ -148,11 +145,13 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
 function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   const scroller = useRef<HTMLDivElement>(null);
   const lines = np.lyrics;
+  // Advance lines a touch to compensate for sampling/WS lag (tunable in Settings).
+  const lead = useSettings().lyricOffsetSec;
 
   let active = -1;
   if (lines) {
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].t <= pos + LYRIC_LEAD_SEC) active = i;
+      if (lines[i].t <= pos + lead) active = i;
       else break;
     }
   }

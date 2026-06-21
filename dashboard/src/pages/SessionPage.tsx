@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { client } from "../client";
+import { ChevronLeftIcon } from "../components/icons";
 import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import type { SessionDetail, SessionTimelineItem } from "../dashboardTypes";
 import { shortModel } from "../format";
 import { cn } from "../lib/cn";
+import { goBack } from "../router";
 
 // Extra classes layered onto <Badge variant="secondary"> for the header chips
 // (larger text, normal weight, wrap spacing); TI is the timeline rail.
@@ -53,7 +56,15 @@ export function SessionPage({ id }: { id: string }) {
   const items = detail.items.slice().reverse(); // newest first
 
   return (
-    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pb-3.5 pt-16">
+    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pb-3.5 pt-3">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={goBack}
+        className="-ml-1 mb-1 h-9 w-9 flex-none self-start text-foreground hover:bg-secondary"
+      >
+        <ChevronLeftIcon className="h-5 w-5" />
+      </Button>
       <Card className="mb-3 flex-none px-4 py-3">
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold">{detail.project}</span>

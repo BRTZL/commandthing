@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Route, Routes, useParams } from "react-router-dom";
+import { Outlet, Route, Routes, useParams } from "react-router-dom";
 import { client } from "./client";
 import { NotificationOverlay } from "./components/NotificationOverlay";
 import { TopBar } from "./components/TopBar";
@@ -9,8 +9,9 @@ import { BoardPage } from "./pages/BoardPage";
 import { FocusPage } from "./pages/FocusPage";
 import { MusicPage } from "./pages/MusicPage";
 import { SessionPage } from "./pages/SessionPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { UsagePage } from "./pages/UsagePage";
-import { goBack, goToTab, openSession, useRoute } from "./router";
+import { goBack, goToSettings, goToTab, openSession, useRoute } from "./router";
 import { tabByPreset } from "./tabs";
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -81,8 +82,9 @@ export function App() {
       } else if (tab === "focus") {
         window.dispatchEvent(new Event("focus-press"));
       }
+    } else if (a.type === "settings") {
+      goToSettings();
     }
-    // "settings" reserved for later
   };
 
   // Inputs (bound once):
@@ -104,6 +106,7 @@ export function App() {
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key >= "1" && e.key <= "4") onAction({ type: "tab", preset: Number(e.key) });
+      else if (e.key === "5") onAction({ type: "settings" });
       else if (e.key === "ArrowUp" || e.key === "ArrowLeft") onAction({ type: "dial", dir: -1 });
       else if (e.key === "ArrowDown" || e.key === "ArrowRight") onAction({ type: "dial", dir: 1 });
       else if (e.key === "Enter") onAction({ type: "select" });
@@ -131,22 +134,35 @@ export function App() {
 
   return (
     <div className="relative mx-auto flex h-device w-device flex-col overflow-hidden bg-background">
-      <TopBar route={route} />
-      {/* Pages fill the full height behind the absolute header; each page adds
-          its own top padding (pt-16) so content starts below it but can scroll
-          up behind it. */}
-      <div className="flex min-h-0 flex-1">
-        <Routes>
+      <Routes>
+        {/* The four tabs share the header (TabLayout). */}
+        <Route element={<TabLayout />}>
           <Route path="/" element={board} />
           <Route path="/usage" element={<UsagePage usage={state.usage} />} />
           <Route path="/music" element={<MusicPage nowPlaying={state.nowPlaying} />} />
           <Route path="/focus" element={<FocusPage />} />
-          <Route path="/session/:id" element={<SessionRoute />} />
           <Route path="*" element={board} />
-        </Routes>
-      </div>
+        </Route>
+        {/* Standalone (no header) — Back returns to where you came from. */}
+        <Route path="/session/:id" element={<SessionRoute />} />
+        <Route path="/settings" element={<SettingsPage host={state.host} connected={connected} />} />
+      </Routes>
       <NotificationOverlay sessions={state.sessions} ready={state.generatedAt > 0} />
     </div>
+  );
+}
+
+/** Shared chrome for the four tab pages: the absolute header over the page,
+    which fills the full height behind it. */
+function TabLayout() {
+  const route = useRoute();
+  return (
+    <>
+      <TopBar route={route} />
+      <div className="flex min-h-0 flex-1">
+        <Outlet />
+      </div>
+    </>
   );
 }
 
