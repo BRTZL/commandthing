@@ -62,7 +62,9 @@ export function SettingsPage() {
         <span className="text-2xl font-extrabold">Settings</span>
       </div>
 
-      <div className="dial-scroll min-h-0 flex-1 overflow-y-auto px-5 pb-6 [&::-webkit-scrollbar]:w-0">
+      {/* Extra right padding: the physical dial overhangs the right edge, so
+          touch targets there are hard to reach. */}
+      <div className="dial-scroll min-h-0 flex-1 overflow-y-auto pb-6 pl-5 pr-20 [&::-webkit-scrollbar]:w-0">
         <Stepper
           label="UI scale"
           hint="Size of everything"

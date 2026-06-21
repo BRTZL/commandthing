@@ -1,6 +1,5 @@
-import { goToSettings, goToTab, type Route } from "../router";
+import { goToTab, type Route } from "../router";
 import { TABS } from "../tabs";
-import { GearIcon } from "./icons";
 import { Button } from "./ui/button";
 
 export function TopBar({ route }: { route: Route; floating?: boolean }) {
@@ -19,15 +18,6 @@ export function TopBar({ route }: { route: Route; floating?: boolean }) {
           </Button>
         ))}
       </nav>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={goToSettings}
-        aria-label="Settings"
-        className="mr-3 h-9 w-9 flex-none text-muted-foreground hover:bg-secondary hover:text-foreground"
-      >
-        <GearIcon className="h-5 w-5" />
-      </Button>
     </header>
   );
 }
