@@ -50,9 +50,6 @@ export function connectHardware(onAction: (a: HwAction) => void): () => void {
       else {
         const m = /^preset_([1-4])$/.exec(t);
         if (m) onAction({ type: "tab", preset: Number(m[1]) });
-        // Log anything unrecognized so the exact event name (e.g. the physical
-        // settings button) can be read from the device console.
-        else console.log("[hw] unmapped button event:", t);
       }
     };
     socket.onclose = () => {

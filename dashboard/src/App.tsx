@@ -80,12 +80,15 @@ export function App() {
   useEffect(() => {
     const off = connectHardware(onAction);
 
+    // The Car Thing delivers its physical controls as keyboard keys (per the
+    // superbird reverse-engineering): presets 1-4, Menu = "m", Back = Escape,
+    // dial press = Enter, dial rotation = wheel (handled above) / arrows.
     const onKey = (e: KeyboardEvent) => {
       if (e.key >= "1" && e.key <= "4") onAction({ type: "tab", preset: Number(e.key) });
-      else if (e.key === "5") onAction({ type: "settings" });
+      else if (e.key === "m" || e.key === "M" || e.key === "5") onAction({ type: "settings" });
       else if (e.key === "ArrowUp" || e.key === "ArrowLeft") onAction({ type: "dial", dir: -1 });
       else if (e.key === "ArrowDown" || e.key === "ArrowRight") onAction({ type: "dial", dir: 1 });
-      else if (e.key === "Enter") onAction({ type: "select" });
+      else if (e.key === "Enter" || e.key === " ") onAction({ type: "select" });
       else if (e.key === "Escape") onAction({ type: "back" });
     };
     window.addEventListener("keydown", onKey);
