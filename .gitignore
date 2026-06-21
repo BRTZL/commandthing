@@ -28,3 +28,6 @@ Thumbs.db
 dashboard/*.png
 device-shot.png
 *-shot.png
+
+# launchd daemon logs
+.carthing-*.log

@@ -108,6 +108,36 @@ If `adb devices` is empty, the Car Thing isn't enumerated — **replug the USB
 cable** (this hardware is flaky on USB-3/Thunderbolt; an inline USB-2 hub is the
 most reliable). The `device:*` scripts fail fast with a clear message in that case.
 
+### Auto-start on login (launchd daemon)
+
+So the dashboard "just works" after a reboot without launching anything by hand,
+install two `launchd` LaunchAgents:
+
+```bash
+bun run daemon:install     # generate + start both agents (idempotent; re-run to refresh)
+bun run daemon:uninstall   # stop + remove them
+bun run daemon:logs        # tail both logs
+```
+
+- **`com.carthing.feeder`** — the feeder on `:4000` (serves `dist` + WS + media).
+- **`com.carthing.tunnel`** — `scripts/connect.ts`: keeps `reverse:4000` armed and,
+  on every (re)connect, reloads the kiosk once the feeder answers — so it
+  auto-recovers from the "something went wrong" page if the device booted before
+  the feeder was up.
+
+Both are `RunAtLoad` + `KeepAlive` and run via `bun` (not a bash script): as a
+launchd agent the watchdog runs from this repo under `~/Documents`, which macOS
+TCC denies to a plain `/bin/bash` (`Operation not permitted`) — `bun` already has
+the access the feeder relies on, so the watchdog rides along.
+
+Caveats:
+- **Login, not boot.** LaunchAgents start when *you log in*, not at the login
+  screen. Fine for a desk setup that auto-logs-in; otherwise log in once.
+- **The daemon owns `:4000`.** Before running the feeder by hand
+  (`bun run feeder` / `feeder:dev`), `bun run daemon:uninstall` first, or they'll
+  fight over the port.
+- Logs land in `.carthing-com.carthing.{feeder,tunnel}.log` (gitignored).
+
 ## Writing UI code: the Chromium-69 rules
 
 The kiosk renders on a **~Chromium 69 / QtWebEngine 5.12.7** engine. The build is
