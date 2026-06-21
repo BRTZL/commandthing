@@ -15,8 +15,10 @@ const CHIP = "mb-2 mr-2 text-sm font-normal";
 const TI = "ml-1 border-l-2 border-border pb-2 pl-3.5 pt-2";
 
 export function SessionPage({ id }: { id: string }) {
-  const [detail, setDetail] = useState<SessionDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [{ detail, error }, setResult] = useState<{
+    detail: SessionDetail | null;
+    error: string | null;
+  }>({ detail: null, error: null });
 
   useEffect(() => {
     let alive = true;
@@ -24,13 +26,10 @@ export function SessionPage({ id }: { id: string }) {
       client
         .request<SessionDetail>("session.detail", { id })
         .then((d) => {
-          if (alive) {
-            setDetail(d);
-            setError(null);
-          }
+          if (alive) setResult({ detail: d, error: null });
         })
         .catch((e) => {
-          if (alive) setError(String(e?.message ?? e));
+          if (alive) setResult((current) => ({ ...current, error: String(e?.message ?? e) }));
         });
     load();
     const t = window.setInterval(load, 3000);

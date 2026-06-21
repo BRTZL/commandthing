@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { type WheelEvent, useCallback, useEffect, useRef } from "react";
 import { Outlet, Route, Routes, useParams } from "react-router-dom";
 import { client } from "./client";
 import { NotificationOverlay } from "./components/NotificationOverlay";
 import { TopBar } from "./components/TopBar";
-import { type DashboardState, emptyState } from "./dashboardTypes";
 import { adjustMinutes, toggleRunning } from "./focusTimer";
 import { connectHardware, type HwAction } from "./hardware";
 import { BoardPage } from "./pages/BoardPage";
@@ -13,6 +12,8 @@ import { SessionPage } from "./pages/SessionPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsagePage } from "./pages/UsagePage";
 import { goBack, goToSettings, goToTab, openSession, useRoute } from "./router";
+import { getDashboardState } from "./store/dashboardStore";
+import { getSelectedSessionIndex, moveSelectedSession } from "./store/uiStore";
 import { tabByPreset } from "./tabs";
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -20,40 +21,13 @@ function clamp(n: number, lo: number, hi: number): number {
 }
 
 export function App() {
-  const [state, setState] = useState<DashboardState>(emptyState());
-  const [connected, setConnected] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  const [selected, setSelected] = useState(0);
   const route = useRoute();
 
-  // Refs so the hardware/keyboard handlers (bound once) read live values.
+  // Ref so the hardware/keyboard handlers (bound once) read the live route.
   const routeRef = useRef(route);
   routeRef.current = route;
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  const selRef = useRef(selected);
-  selRef.current = selected;
 
-  useEffect(() => {
-    const offState = client.onState(setState);
-    const offStatus = client.onStatus(setConnected);
-    return () => {
-      offState();
-      offStatus();
-    };
-  }, []);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  // Keep selection in range as the session list changes.
-  useEffect(() => {
-    setSelected((i) => clamp(i, 0, Math.max(0, state.sessions.length - 1)));
-  }, [state.sessions.length]);
-
-  const onAction = (a: HwAction) => {
+  const onAction = useCallback((a: HwAction) => {
     const r = routeRef.current;
     const tab = r.tab;
     const onBoard = tab === "sessions" && !r.sessionId;
@@ -64,10 +38,10 @@ export function App() {
       goBack();
     } else if (a.type === "dial") {
       if (onBoard) {
-        const n = stateRef.current.sessions.length;
-        setSelected((i) => clamp(i + a.dir, 0, Math.max(0, n - 1)));
+        const max = Math.max(0, getDashboardState().sessions.length - 1);
+        moveSelectedSession(a.dir, max);
       } else if (tab === "music") {
-        const v = stateRef.current.nowPlaying?.volume ?? 50;
+        const v = getDashboardState().nowPlaying?.volume ?? 50;
         void client.request("media.control", { action: "volume", value: clamp(v + a.dir * 5, 0, 100) });
       } else if (tab === "focus") {
         adjustMinutes(a.dir);
@@ -76,7 +50,7 @@ export function App() {
       }
     } else if (a.type === "select") {
       if (onBoard) {
-        const s = stateRef.current.sessions[selRef.current];
+        const s = getDashboardState().sessions[getSelectedSessionIndex()];
         if (s) openSession(s.id);
       } else if (tab === "music") {
         void client.request("media.control", { action: "playpause" });
@@ -86,24 +60,25 @@ export function App() {
     } else if (a.type === "settings") {
       goToSettings();
     }
-  };
+  }, []);
 
-  // Inputs (bound once):
-  //  - 8890 socket: preset buttons, dial press, back, settings
-  //  - DOM wheel: the dial ROTATION (deltaX sign = direction)
-  //  - keyboard: desktop-dev fallback
-  useEffect(() => {
-    const off = connectHardware(onAction);
-
-    const onWheel = (e: WheelEvent) => {
+  const onWheel = useCallback(
+    (e: WheelEvent<HTMLDivElement>) => {
       // The dial rotation arrives as a wheel event; onAction routes it per tab
       // (board selection / music volume / focus minutes / else scroll).
       const d = e.deltaX !== 0 ? e.deltaX : e.deltaY;
       if (d === 0) return;
       e.preventDefault();
       onAction({ type: "dial", dir: d < 0 ? -1 : 1 });
-    };
-    window.addEventListener("wheel", onWheel, { passive: false });
+    },
+    [onAction],
+  );
+
+  // Inputs (bound once):
+  //  - 8890 socket: preset buttons, dial press, back, settings
+  //  - keyboard: desktop-dev fallback
+  useEffect(() => {
+    const off = connectHardware(onAction);
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key >= "1" && e.key <= "4") onAction({ type: "tab", preset: Number(e.key) });
@@ -117,38 +92,29 @@ export function App() {
 
     return () => {
       off();
-      window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
     };
-  }, []);
-
-  const board = (
-    <BoardPage
-      sessions={state.sessions}
-      connected={connected}
-      now={now}
-      selected={selected}
-      onOpen={openSession}
-      onHover={setSelected}
-    />
-  );
+  }, [onAction]);
 
   return (
-    <div className="relative mx-auto flex h-device w-device flex-col overflow-hidden bg-background">
+    <div
+      onWheel={onWheel}
+      className="relative mx-auto flex h-device w-device flex-col overflow-hidden bg-background"
+    >
       <Routes>
         {/* The four tabs share the header (TabLayout). */}
         <Route element={<TabLayout />}>
-          <Route path="/" element={board} />
-          <Route path="/usage" element={<UsagePage usage={state.usage} />} />
-          <Route path="/music" element={<MusicPage nowPlaying={state.nowPlaying} />} />
+          <Route path="/" element={<BoardPage />} />
+          <Route path="/usage" element={<UsagePage />} />
+          <Route path="/music" element={<MusicPage />} />
           <Route path="/focus" element={<FocusPage />} />
-          <Route path="*" element={board} />
+          <Route path="*" element={<BoardPage />} />
         </Route>
         {/* Standalone (no header) — Back returns to where you came from. */}
         <Route path="/session/:id" element={<SessionRoute />} />
-        <Route path="/settings" element={<SettingsPage host={state.host} connected={connected} />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Routes>
-      <NotificationOverlay sessions={state.sessions} ready={state.generatedAt > 0} />
+      <NotificationOverlay />
     </div>
   );
 }

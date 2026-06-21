@@ -2,6 +2,7 @@ import { ChevronLeftIcon, MinusIcon, PlusIcon } from "../components/icons";
 import { Button } from "../components/ui/button";
 import { goBack } from "../router";
 import { setSetting, useSettings } from "../settings";
+import { useConnected, useHost } from "../store/dashboardStore";
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -43,8 +44,10 @@ function Stepper({
 }
 
 /** Standalone settings page (no tab header) — opened by the physical settings button. */
-export function SettingsPage({ host, connected }: { host: string; connected: boolean }) {
+export function SettingsPage() {
   const s = useSettings();
+  const host = useHost();
+  const connected = useConnected();
   return (
     <div className="relative flex w-full flex-1 flex-col min-h-0 bg-background">
       <div className="flex flex-none items-center px-4 py-3">

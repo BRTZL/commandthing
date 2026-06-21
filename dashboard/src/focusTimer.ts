@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * Pomodoro timer as a module-level singleton so it keeps running when you leave
@@ -35,7 +35,7 @@ function set(patch: Partial<FocusState>): void {
   notify();
 }
 
-export function getFocus(): FocusState {
+function getFocus(): FocusState {
   return state;
 }
 export function focusTotal(s: FocusState): number {
@@ -93,16 +93,14 @@ export function resetFocus(): void {
 }
 
 export function useFocus(): FocusState {
-  const [s, setS] = useState(state);
-  useEffect(() => {
-    const cb = () => setS(getFocus());
-    subs.add(cb);
-    cb();
-    return () => {
-      subs.delete(cb);
-    };
-  }, []);
-  return s;
+  return useSyncExternalStore(subscribeFocus, getFocus, getFocus);
+}
+
+function subscribeFocus(cb: () => void): () => void {
+  subs.add(cb);
+  return () => {
+    subs.delete(cb);
+  };
 }
 
 // Soft two-note completion chime.

@@ -1,6 +1,7 @@
 import type { ClaudeSession } from "../dashboardTypes";
 import { relativeTime, shortModel } from "../format";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 
 export function SessionCard({
   session,
@@ -16,12 +17,13 @@ export function SessionCard({
   const model = shortModel(session.model);
   return (
     // State drives child colors via group-data-*; selected/needs drive the card.
-    <div
+    <Button
+      variant="ghost"
       data-state={session.state}
       data-selected={selected ? "true" : undefined}
       data-needs={session.needsInput ? "true" : undefined}
       onClick={onClick}
-      className="group relative mb-3 cursor-pointer overflow-hidden rounded-xl border-2 border-border bg-secondary py-3 pl-4 pr-7 data-[needs=true]:border-waiting data-[selected=true]:border-primary data-[selected=true]:bg-accent data-[selected=true]:ring-2 data-[selected=true]:ring-primary/30"
+      className="group relative mb-3 h-auto w-full cursor-pointer justify-start overflow-hidden rounded-xl border-2 border-border bg-secondary py-3 pl-4 pr-7 text-left text-foreground hover:bg-secondary data-[needs=true]:border-waiting data-[selected=true]:border-primary data-[selected=true]:bg-accent data-[selected=true]:ring-2 data-[selected=true]:ring-primary/30"
     >
       <span className="absolute bottom-0 left-0 top-0 w-1.5 bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting" />
       <div>
@@ -66,6 +68,6 @@ export function SessionCard({
         </div>
       </div>
       {onClick && <span className="absolute right-3 top-1/2 -mt-4 text-3xl text-muted-foreground">›</span>}
-    </div>
+    </Button>
   );
 }

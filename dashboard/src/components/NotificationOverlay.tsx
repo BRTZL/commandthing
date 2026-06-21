@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { ClaudeSession } from "../dashboardTypes";
 import { openSession } from "../router";
+import { useReady, useSessions } from "../store/dashboardStore";
 import { Button } from "./ui/button";
 
 /**
@@ -11,15 +11,12 @@ import { Button } from "./ui/button";
  * (Self-managed rather than sonner — sonner's CSS/runtime doesn't render
  * reliably on the device's Chromium 69.)
  */
-export function NotificationOverlay({
-  sessions,
-  ready,
-}: {
-  sessions: ClaudeSession[];
+export function NotificationOverlay() {
+  const sessions = useSessions();
   /** True once the FIRST real broadcast has arrived (not the empty seed state). */
-  ready: boolean;
-}) {
-  const prev = useRef<Set<string>>(new Set());
+  const ready = useReady();
+  const prev = useRef<Set<string> | null>(null);
+  if (!prev.current) prev.current = new Set();
   const initialized = useRef(false);
   const timer = useRef<number | null>(null);
   const [alert, setAlert] = useState<{ id: string; project: string } | null>(null);
@@ -36,7 +33,7 @@ export function NotificationOverlay({
       return;
     }
 
-    const fresh = waiting.find((s) => !prev.current.has(s.id));
+    const fresh = waiting.find((s) => !prev.current?.has(s.id));
     prev.current = ids;
     if (fresh) {
       setAlert({ id: fresh.id, project: fresh.project });

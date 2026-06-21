@@ -1,8 +1,10 @@
 import { Card } from "../components/ui/card";
-import type { UsageLine, UsageProvider, UsageSummary } from "../dashboardTypes";
+import type { UsageLine, UsageProvider } from "../dashboardTypes";
 import { cn } from "../lib/cn";
+import { useUsage } from "../store/dashboardStore";
 
-export function UsagePage({ usage }: { usage: UsageSummary | null }) {
+export function UsagePage() {
+  const usage = useUsage();
   if (!usage) {
     return (
       <div className="p-6">

@@ -27,7 +27,7 @@ function load(): Settings {
 let current = load();
 const subs = new Set<() => void>();
 
-export function getSettings(): Settings {
+function getSettings(): Settings {
   return current;
 }
 
@@ -42,7 +42,7 @@ export function setSetting<K extends keyof Settings>(key: K, value: Settings[K])
   for (const f of subs) f();
 }
 
-export function subscribe(cb: () => void): () => void {
+function subscribe(cb: () => void): () => void {
   subs.add(cb);
   return () => {
     subs.delete(cb);
@@ -50,7 +50,7 @@ export function subscribe(cb: () => void): () => void {
 }
 
 /** Apply the UI scale to the document root (overrides the index.css default). */
-export function applyUiScale(): void {
+function applyUiScale(): void {
   try {
     document.documentElement.style.fontSize = `${current.uiScalePx}px`;
   } catch {
