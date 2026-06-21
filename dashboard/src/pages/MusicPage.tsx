@@ -93,9 +93,9 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
             variant="ghost"
             size="icon"
             onClick={() => control("playpause")}
-            className="mx-2 h-14 w-14 rounded-full bg-foreground text-background hover:bg-foreground/90"
+            className="mx-3 h-14 w-14 text-foreground hover:bg-foreground/10"
           >
-            {playing ? <PauseIcon className="h-7 w-7" /> : <PlayIcon className="h-7 w-7" />}
+            {playing ? <PauseIcon className="h-9 w-9" /> : <PlayIcon className="h-9 w-9" />}
           </Button>
           <Button
             variant="ghost"
@@ -187,7 +187,6 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
     box.scrollTop = el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
   }, [active]);
 
-  // No (or not-yet-loaded) lyrics → show the sharp cover, centered.
   // No (or not-yet-loaded) lyrics → just show the album cover, beautifully. No
   // "loading" text — it either fills with lyrics or stays a clean cover view.
   if (!np.lyricsLoaded || !lines || lines.length === 0) {
