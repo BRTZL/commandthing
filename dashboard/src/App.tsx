@@ -4,6 +4,7 @@ import { client } from "./client";
 import { NotificationOverlay } from "./components/NotificationOverlay";
 import { TopBar } from "./components/TopBar";
 import { type DashboardState, emptyState } from "./dashboardTypes";
+import { adjustMinutes, toggleRunning } from "./focusTimer";
 import { connectHardware, type HwAction } from "./hardware";
 import { BoardPage } from "./pages/BoardPage";
 import { FocusPage } from "./pages/FocusPage";
@@ -69,7 +70,7 @@ export function App() {
         const v = stateRef.current.nowPlaying?.volume ?? 50;
         void client.request("media.control", { action: "volume", value: clamp(v + a.dir * 5, 0, 100) });
       } else if (tab === "focus") {
-        window.dispatchEvent(new CustomEvent("focus-dial", { detail: a.dir }));
+        adjustMinutes(a.dir);
       } else {
         document.querySelector(".dial-scroll")?.scrollBy({ top: a.dir * 96, behavior: "smooth" });
       }
@@ -80,7 +81,7 @@ export function App() {
       } else if (tab === "music") {
         void client.request("media.control", { action: "playpause" });
       } else if (tab === "focus") {
-        window.dispatchEvent(new Event("focus-press"));
+        toggleRunning();
       }
     } else if (a.type === "settings") {
       goToSettings();
