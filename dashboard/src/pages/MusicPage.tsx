@@ -74,22 +74,8 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
 
   return (
     <div className="relative flex w-full flex-1 min-h-0 overflow-hidden">
-      {/* full-bleed blurred cover (expanded so the blur's soft edges stay off-screen) */}
-      {art && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute bg-cover bg-center"
-          style={{
-            top: -50,
-            right: -50,
-            bottom: -50,
-            left: -50,
-            backgroundImage: `url("${art}")`,
-            filter: "blur(26px)",
-            transform: "scale(1.12)",
-          }}
-        />
-      )}
+      {/* full-bleed blurred cover, cross-fading between tracks */}
+      <CoverBackdrop art={art} />
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SCRIM }} />
 
       {/* lyrics */}
@@ -139,6 +125,55 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
         <div className="h-full bg-foreground" style={{ width: `${pct}%` }} />
       </div>
     </div>
+  );
+}
+
+/** Full-bleed blurred album cover that cross-fades when the track changes. */
+function CoverBackdrop({ art }: { art: string | null }) {
+  const last = useRef<string | null>(null);
+  const [cur, setCur] = useState<string | null>(art);
+  const [prev, setPrev] = useState<string | null>(null);
+  const [fade, setFade] = useState(false);
+
+  useEffect(() => {
+    if (art === last.current) return;
+    const old = last.current;
+    last.current = art;
+    setCur(art);
+    if (!old) return;
+    // Show the old cover on top, then fade it out to reveal the new one beneath.
+    setPrev(old);
+    setFade(false);
+    const raf = requestAnimationFrame(() => setFade(true));
+    const t = window.setTimeout(() => setPrev(null), 1100);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, [art]);
+
+  const layer = (src: string, fading: boolean) => (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute bg-cover bg-center transition-opacity duration-1000"
+      style={{
+        top: -50,
+        right: -50,
+        bottom: -50,
+        left: -50,
+        backgroundImage: `url("${src}")`,
+        filter: "blur(26px)",
+        transform: "scale(1.12)",
+        opacity: fading ? 0 : 1,
+      }}
+    />
+  );
+
+  return (
+    <>
+      {cur && layer(cur, false)}
+      {prev && layer(prev, fade)}
+    </>
   );
 }
 
