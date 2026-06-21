@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { client } from "../client";
+import { NextIcon, PauseIcon, PlayIcon, PreviousIcon } from "../components/icons";
 import { Button } from "../components/ui/button";
 import type { NowPlaying } from "../dashboardTypes";
 import { useSettings } from "../settings";
@@ -11,21 +12,6 @@ function control(action: string, value?: number): void {
 
 function artUrl(np: NowPlaying): string | null {
   return np.artworkUrl ? `/api/artwork?u=${encodeURIComponent(np.artworkUrl)}` : null;
-}
-
-const ICON_PATH: Record<string, string> = {
-  prev: "M6 6h2v12H6zm3.5 6 8.5 6V6z",
-  next: "M6 18l8.5-6L6 6v12zM16 6h2v12h-2z",
-  play: "M8 5v14l11-7z",
-  pause: "M6 5h4v14H6zm8 0h4v14h-4z",
-};
-
-function MediaIcon({ name, className }: { name: string; className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true" role="presentation">
-      <path d={ICON_PATH[name]} />
-    </svg>
-  );
 }
 
 // Layered gradient scrim that keeps lyrics + controls legible over the cover.
@@ -101,7 +87,7 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
             onClick={() => control("previous")}
             className="h-12 w-12 text-foreground hover:bg-foreground/10"
           >
-            <MediaIcon name="prev" className="h-6 w-6" />
+            <PreviousIcon className="h-8 w-8" />
           </Button>
           <Button
             variant="ghost"
@@ -109,7 +95,7 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
             onClick={() => control("playpause")}
             className="mx-2 h-14 w-14 rounded-full bg-foreground text-background hover:bg-foreground/90"
           >
-            <MediaIcon name={playing ? "pause" : "play"} className="h-7 w-7" />
+            {playing ? <PauseIcon className="h-7 w-7" /> : <PlayIcon className="h-7 w-7" />}
           </Button>
           <Button
             variant="ghost"
@@ -117,7 +103,7 @@ export function MusicPage({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
             onClick={() => control("next")}
             className="h-12 w-12 text-foreground hover:bg-foreground/10"
           >
-            <MediaIcon name="next" className="h-6 w-6" />
+            <NextIcon className="h-8 w-8" />
           </Button>
         </div>
       </div>
