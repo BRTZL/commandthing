@@ -26,19 +26,23 @@ export function BoardPage({
     const list = listRef.current;
     const el = list?.querySelector("[data-selected='true']") as HTMLElement | null;
     if (!list || !el) return;
-    const margin = 52;
+    const topMargin = 84; // keep the selected card clear of the absolute header
+    const bottomMargin = 52;
     const lr = list.getBoundingClientRect();
     const er = el.getBoundingClientRect();
-    if (er.bottom + margin > lr.bottom) {
-      list.scrollTop += er.bottom + margin - lr.bottom;
-    } else if (er.top - margin < lr.top) {
-      list.scrollTop -= lr.top - er.top + margin;
+    if (er.bottom + bottomMargin > lr.bottom) {
+      list.scrollTop += er.bottom + bottomMargin - lr.bottom;
+    } else if (er.top - topMargin < lr.top) {
+      list.scrollTop -= lr.top - er.top + topMargin;
     }
   }, [selected]);
 
   return (
-    <main className="flex w-full flex-1 flex-col min-h-0 px-3.5 py-3">
-      <div className="dial-scroll min-h-0 overflow-y-auto pb-12 [&::-webkit-scrollbar]:w-0" ref={listRef}>
+    <main className="flex w-full flex-1 flex-col min-h-0 px-3.5">
+      <div
+        className="dial-scroll min-h-0 overflow-y-auto pt-16 pb-12 [&::-webkit-scrollbar]:w-0"
+        ref={listRef}
+      >
         {sessions.length === 0 && (
           <div className="px-3 py-10 text-center text-lg text-muted-foreground">
             {connected ? "No active sessions" : "Connecting to feeder…"}

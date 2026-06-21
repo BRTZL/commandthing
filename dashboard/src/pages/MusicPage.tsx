@@ -32,6 +32,10 @@ const SCRIM =
   "radial-gradient(120% 90% at 50% 8%, rgba(0,0,0,0) 38%, rgba(0,0,0,.5) 100%)," +
   "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.12) 35%, rgba(0,0,0,.85))";
 const LYRIC_FADE = "linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent)";
+// Highlight lines slightly early to compensate for sampling + WS latency on the
+// device (the feeder samples Spotify's position ~once a second). Bump if lyrics
+// still feel late, lower if they get ahead.
+const LYRIC_LEAD_SEC = 0.5;
 
 /**
  * "Immerse" now-playing: the album art fills the screen, blurred, with the
@@ -148,7 +152,7 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   let active = -1;
   if (lines) {
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].t <= pos + 0.2) active = i;
+      if (lines[i].t <= pos + LYRIC_LEAD_SEC) active = i;
       else break;
     }
   }
@@ -165,7 +169,7 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   if (!np.lyricsLoaded || !lines || lines.length === 0) {
     const art = artUrl(np);
     return (
-      <div className="absolute bottom-24 left-0 right-0 top-10 flex flex-col items-center justify-center">
+      <div className="absolute bottom-20 left-0 right-0 top-16 flex flex-col items-center justify-center">
         {art && <img src={art} alt="Album art" className="h-48 w-48 rounded-2xl object-cover shadow-2xl" />}
         <div className="mt-5 text-base text-foreground/60">
           {np.lyricsLoaded ? "No synced lyrics" : "Loading lyrics…"}
@@ -177,7 +181,7 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
   return (
     <div
       ref={scroller}
-      className="dial-scroll absolute bottom-24 left-0 right-0 top-10 overflow-y-auto text-center [&::-webkit-scrollbar]:w-0"
+      className="dial-scroll absolute bottom-20 left-0 right-0 top-16 overflow-y-auto text-center [&::-webkit-scrollbar]:w-0"
       style={{
         WebkitMaskImage: LYRIC_FADE,
         maskImage: LYRIC_FADE,

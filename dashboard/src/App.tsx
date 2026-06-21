@@ -131,8 +131,10 @@ export function App() {
 
   return (
     <div className="relative mx-auto flex h-device w-device flex-col overflow-hidden bg-background">
-      {/* Music is a full-screen immersive player (nav via the physical buttons). */}
-      {route.tab !== "music" && <TopBar route={route} />}
+      <TopBar route={route} />
+      {/* Pages fill the full height behind the absolute header; each page adds
+          its own top padding (pt-16) so content starts below it but can scroll
+          up behind it. */}
       <div className="flex min-h-0 flex-1">
         <Routes>
           <Route path="/" element={board} />

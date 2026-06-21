@@ -2,6 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Inter (SIL OFL) — self-hosted so it works on the device with no internet.
+   Served from /fonts (public/) by the feeder; the same grotesque nocturne uses. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Inter-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/Inter-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/Inter-SemiBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Inter-Bold.ttf") format("truetype");
+}
+
 /* shadcn-style design tokens (HSL triplets) tuned to our dark theme.
    Chromium-69-safe — no oklch. Components reference these via Tailwind. */
 :root {
@@ -54,7 +85,7 @@
   body {
     background: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: -apple-system, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
     user-select: none;

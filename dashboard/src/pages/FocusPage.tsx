@@ -125,7 +125,7 @@ export function FocusPage() {
   return (
     <div
       data-flash={flash ? "true" : undefined}
-      className="relative flex w-full flex-1 flex-col items-center justify-center data-[flash=true]:bg-waiting/10"
+      className="relative flex w-full flex-1 flex-col items-center justify-center pt-14 data-[flash=true]:bg-waiting/10"
     >
       <Badge variant={mode === "work" ? "default" : "working"} className="uppercase tracking-wide">
         {LABEL[mode]}

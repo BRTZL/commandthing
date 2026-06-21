@@ -23,7 +23,7 @@ export function UsagePage({ usage }: { usage: UsageSummary | null }) {
   }
 
   return (
-    <div className="flex w-full flex-1 flex-col min-h-0 p-3.5">
+    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pb-3.5 pt-16">
       <div className="mb-3 flex flex-none items-baseline">
         <span className="text-3xl font-bold tabular-nums">{usage.todayLabel}</span>
         <span className="ml-3.5 text-base text-muted-foreground">

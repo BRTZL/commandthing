@@ -24,6 +24,7 @@ export default {
         thinking: c("--thinking"),
       },
       fontFamily: {
+        sans: ['"Inter"', "system-ui", "sans-serif"],
         mono: ['"SF Mono"', "ui-monospace", "Menlo", "monospace"],
       },
       // The Car Thing's fixed screen resolution.

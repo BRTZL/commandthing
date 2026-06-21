@@ -53,7 +53,7 @@ export function SessionPage({ id }: { id: string }) {
   const items = detail.items.slice().reverse(); // newest first
 
   return (
-    <div className="flex w-full flex-1 flex-col min-h-0 p-3.5">
+    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pb-3.5 pt-16">
       <Card className="mb-3 flex-none px-4 py-3">
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold">{detail.project}</span>
