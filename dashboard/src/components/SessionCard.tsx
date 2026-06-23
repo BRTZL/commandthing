@@ -23,9 +23,9 @@ export function SessionCard({
       data-selected={selected ? "true" : undefined}
       data-needs={session.needsInput ? "true" : undefined}
       onClick={onClick}
-      className="group repaint-isolate relative mb-3 h-auto w-full cursor-pointer justify-start overflow-hidden rounded-xl border-2 border-border bg-secondary py-3 pl-4 pr-7 text-left text-foreground hover:bg-secondary data-[needs=true]:border-waiting data-[selected=true]:border-primary data-[selected=true]:bg-accent"
+      className="group relative mb-3 h-auto w-full cursor-pointer justify-start overflow-hidden rounded-xl border-2 border-border bg-secondary py-3 pl-4 pr-7 text-left text-foreground hover:bg-secondary data-[needs=true]:border-waiting data-[selected=true]:border-primary data-[selected=true]:bg-accent data-[selected=true]:ring-2 data-[selected=true]:ring-primary/30"
     >
-      <span className="absolute bottom-0 left-0 top-0 w-1.5 bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting group-data-[state=done]:bg-done" />
+      <span className="absolute bottom-0 left-0 top-0 w-1.5 bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting" />
       <div>
         <div className="flex items-center">
           <span className="text-2xl font-bold text-foreground">{session.project}</span>
@@ -37,24 +37,18 @@ export function SessionCard({
               {session.gitBranch}
             </Badge>
           )}
-          {session.needsInput ? (
+          {session.needsInput && (
             <Badge variant="waiting" className="ml-auto rounded-full uppercase tracking-wide">
               needs you
             </Badge>
-          ) : (
-            session.state === "done" && (
-              <Badge variant="done" className="ml-auto rounded-full uppercase tracking-wide">
-                your turn
-              </Badge>
-            )
           )}
         </div>
         <div className="mt-1.5 truncate text-base text-foreground/80">
           {session.title ?? session.lastPrompt ?? "(untitled session)"}
         </div>
         <div className="mt-2.5 flex items-center text-sm text-muted-foreground">
-          <span className="mr-2 h-2 w-2 rounded-full bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting group-data-[state=done]:bg-done" />
-          <span className="capitalize">{session.state === "done" ? "your turn" : session.state}</span>
+          <span className="mr-2 h-2 w-2 rounded-full bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting" />
+          <span className="capitalize">{session.state}</span>
           <span className="mx-2 opacity-50">·</span>
           <span>{relativeTime(session.lastActivity, now)}</span>
           {model && (

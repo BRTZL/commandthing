@@ -67,7 +67,6 @@
   /* app-specific session/state colors */
   --working: 152 69% 55%;
   --waiting: 39 92% 63%;
-  --done: 190 85% 60%; /* calm cyan — "your turn", not a warning */
   --idle: 225 11% 40%;
   --thinking: 265 84% 75%;
 }
@@ -103,24 +102,5 @@
     appearance: none;
     background: transparent;
     outline: none;
-  }
-}
-
-/* ── Compositor discipline (matches nocturne-ui, which runs forever on this same
-   Wayland/Mali/Chromium-69 firmware without crashing) ───────────────────────
-   The renderer's libwayland buffer pool leaks under SUSTAINED LARGE-AREA GPU
-   repaints. The cure is to keep each repaint small + isolated: promote scroll
-   containers to a stable own-layer (nocturne's exact pattern), and `contain`
-   live-updating cards so a data change re-rasters only that card's box instead
-   of the shared root surface. */
-@layer components {
-  .dial-scroll {
-    transform: translateZ(0);
-    will-change: scroll-position;
-    -webkit-overflow-scrolling: touch;
-  }
-  /* layout+paint containment bounds invalidation to the element's own box */
-  .repaint-isolate {
-    contain: layout paint;
   }
 }
