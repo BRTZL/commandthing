@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { client } from "../client";
 import { NextIcon, PauseIcon, PlayIcon, PreviousIcon } from "../components/icons";
 import { Button } from "../components/ui/button";
@@ -15,18 +15,36 @@ function artUrl(np: NowPlaying): string | null {
   return np.artworkUrl ? `/api/artwork?u=${encodeURIComponent(np.artworkUrl)}` : null;
 }
 
+/**
+ * Backdrop art: the 64px Spotify variant, upscaled by `bg-cover` to a soft wash.
+ * This replaces `filter: blur()` ON PURPOSE — a blur filter is a composited GPU
+ * layer, and composited layers leak the device's Wayland buffers and crash the
+ * renderer (~7 min). An upscaled low-res image looks ~the same with zero filter.
+ */
+function backdropUrl(np: NowPlaying): string | null {
+  if (!np.artworkUrl) return null;
+  const small = np.artworkUrl.replace(/ab67616d[0-9a-f]{8}/, "ab67616d00004851");
+  return `/api/artwork?u=${encodeURIComponent(small)}`;
+}
+
 // Layered gradient scrim that keeps lyrics + controls legible over the cover.
+// (Gradients paint into the parent layer — they do NOT composite, so they're safe.)
 const SCRIM =
   "radial-gradient(120% 90% at 50% 8%, rgba(0,0,0,0) 38%, rgba(0,0,0,.5) 100%)," +
   "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.12) 35%, rgba(0,0,0,.85))";
-const LYRIC_FADE = "linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent)";
 const COVER_SHADOW = "0 30px 90px rgba(0,0,0,0.55)";
 
+// How many lyric lines to show above/below the active one in the fixed window.
+const LYRIC_HALF = 3;
+
 /**
- * "Immerse" now-playing: the album art fills the screen, blurred, with the
+ * "Immerse" now-playing: the album art fills the screen as a soft wash with the
  * lyrics floating large and centered and the track + transport at the bottom.
- * filter:blur is Chromium-69 safe (backdrop-filter is not); offsets use the
- * longhand top/right/bottom/left (the `inset` shorthand isn't supported there).
+ *
+ * NO composited layers: the backdrop is a plain background-image (no blur/scale),
+ * the lyrics are a FIXED WINDOW (no overflow scroller). On this firmware,
+ * composited layers (filter/mask/overflow-scrolling-touch) leak Wayland buffers
+ * and crash the renderer — flat content does not.
  */
 export function MusicPage() {
   const np = useNowPlaying();
@@ -62,12 +80,18 @@ export function MusicPage() {
   }
 
   const pct = np.durationSec > 0 ? Math.min(100, (pos / np.durationSec) * 100) : 0;
-  const art = artUrl(np);
+  const backdrop = backdropUrl(np);
 
   return (
     <div className="relative flex w-full flex-1 min-h-0 overflow-hidden">
-      {/* full-bleed blurred cover, cross-fading between tracks */}
-      <CoverBackdrop art={art} />
+      {/* full-bleed album wash (plain background-image — no filter/transform layer) */}
+      {backdrop && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bg-cover bg-center"
+          style={{ top: 0, right: 0, bottom: 0, left: 0, backgroundImage: `url("${backdrop}")` }}
+        />
+      )}
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: SCRIM }} />
 
       {/* lyrics */}
@@ -120,68 +144,7 @@ export function MusicPage() {
   );
 }
 
-/** Full-bleed blurred album cover that cross-fades when the track changes. */
-const CoverBackdrop = memo(function CoverBackdrop({ art }: { art: string | null }) {
-  const last = useRef<string | null | undefined>(undefined);
-  const [transition, setTransition] = useState<{ prev: string | null; fading: boolean }>({
-    prev: null,
-    fading: false,
-  });
-
-  if (art !== last.current) {
-    const old = last.current ?? null;
-    last.current = art;
-    if (old) {
-      setTransition({ prev: old, fading: false });
-    } else if (transition.prev) {
-      setTransition({ prev: null, fading: false });
-    }
-  }
-
-  useEffect(() => {
-    if (!transition.prev || transition.fading) return;
-    const raf = requestAnimationFrame(() => setTransition((current) => ({ ...current, fading: true })));
-    const timeout = window.setTimeout(() => setTransition({ prev: null, fading: false }), 1100);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(timeout);
-    };
-  }, [transition.prev, transition.fading]);
-
-  return (
-    <>
-      {art && <CoverLayer src={art} fading={false} />}
-      {transition.prev && <CoverLayer src={transition.prev} fading={transition.fading} />}
-    </>
-  );
-});
-
-const CoverLayer = memo(function CoverLayer({ src, fading }: { src: string; fading: boolean }) {
-  const style = useMemo(
-    () => ({
-      top: -32,
-      right: -32,
-      bottom: -32,
-      left: -32,
-      backgroundImage: `url("${src}")`,
-      filter: "blur(10px)",
-      transform: "scale(1.08)",
-      opacity: fading ? 0 : 1,
-    }),
-    [src, fading],
-  );
-
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute bg-cover bg-center transition-opacity duration-1000"
-      style={style}
-    />
-  );
-});
-
 function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
-  const scroller = useRef<HTMLDivElement>(null);
   const lines = np.lyrics;
   // Advance lines a touch to compensate for sampling/WS lag (tunable in Settings).
   const lead = useSettings().lyricOffsetSec;
@@ -193,14 +156,6 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
       else break;
     }
   }
-
-  useEffect(() => {
-    const box = scroller.current;
-    if (!box || active < 0) return;
-    const el = box.querySelector(`[data-line='${active}']`) as HTMLElement | null;
-    if (!el) return;
-    box.scrollTop = el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
-  }, [active]);
 
   // No (or not-yet-loaded) lyrics → just show the album cover, beautifully. No
   // "loading" text — it either fills with lyrics or stays a clean cover view.
@@ -220,28 +175,30 @@ function Lyrics({ np, pos }: { np: NowPlaying; pos: number }) {
     );
   }
 
+  // Fixed WINDOW centered on the active line — no overflow scroller (a composited
+  // scroll layer is what leaks Wayland buffers). The window slides as playback
+  // advances; the active line stays centered and bright, neighbors dimmed.
+  const center = active < 0 ? 0 : active;
+  const rows = [];
+  for (let i = center - LYRIC_HALF; i <= center + LYRIC_HALF; i++) {
+    const l = i >= 0 && i < lines.length ? lines[i] : null;
+    rows.push(
+      <p
+        key={i}
+        data-active={i === active ? "true" : undefined}
+        className="px-12 py-2 text-3xl font-bold leading-snug text-foreground/25 transition-colors duration-300 data-[active=true]:text-foreground"
+      >
+        {l ? l.text || "♪" : " "}
+      </p>,
+    );
+  }
+
   return (
     <div
-      ref={scroller}
-      className="dial-scroll absolute bottom-20 left-0 right-0 top-16 overflow-y-auto text-center [&::-webkit-scrollbar]:w-0"
-      style={{
-        WebkitMaskImage: LYRIC_FADE,
-        maskImage: LYRIC_FADE,
-        textShadow: "0 2px 16px rgba(0,0,0,.55)",
-      }}
+      className="absolute bottom-20 left-0 right-0 top-16 flex flex-col items-center justify-center overflow-hidden text-center"
+      style={{ textShadow: "0 2px 16px rgba(0,0,0,.55)" }}
     >
-      <div className="py-24">
-        {lines.map((l, i) => (
-          <p
-            key={`${l.t}:${l.text}`}
-            data-line={i}
-            data-active={i === active ? "true" : undefined}
-            className="px-12 py-2 text-3xl font-bold leading-snug text-foreground/25 transition-colors duration-300 data-[active=true]:text-foreground"
-          >
-            {l.text || "♪"}
-          </p>
-        ))}
-      </div>
+      {rows}
     </div>
   );
 }

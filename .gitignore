@@ -31,3 +31,7 @@ device-shot.png
 
 # launchd daemon logs
 .carthing-*.log
+
+# device crash dumps + diagnostic screenshots
+device-crashes*/
+device-*.png
