@@ -49,8 +49,13 @@ write_plist() { # $1=label  $2=program-args (newline-separated)  $3=extra <dict>
   <key>ProgramArguments</key>
   <array>
 $args_xml  </array>
+  <!-- WorkingDirectory + log paths live in \$HOME, NOT the repo: the repo is
+       under ~/Documents, which is TCC-protected, and launchd cannot chdir into
+       (or open files in) it as an agent — that fails the whole job with
+       EX_CONFIG(78). The feeder/watchdog resolve their own files by absolute
+       script path (import.meta), so cwd doesn't matter. -->
   <key>WorkingDirectory</key>
-  <string>$REPO</string>
+  <string>$HOME</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
@@ -63,9 +68,9 @@ $env_extra  </dict>
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>$REPO/.carthing-$label.log</string>
+  <string>$HOME/.carthing-$label.log</string>
   <key>StandardErrorPath</key>
-  <string>$REPO/.carthing-$label.log</string>
+  <string>$HOME/.carthing-$label.log</string>
 </dict>
 </plist>
 PLIST
@@ -74,7 +79,7 @@ PLIST
 write_plist "com.carthing.feeder" \
   "$BUN
 run
-server/src/index.ts" \
+$REPO/server/src/index.ts" \
   "    <key>HOST</key>
     <string>0.0.0.0</string>
 "
@@ -82,7 +87,7 @@ server/src/index.ts" \
 write_plist "com.carthing.tunnel" \
   "$BUN
 run
-scripts/connect.ts
+$REPO/scripts/connect.ts
 4000"
 
 reload_agent() { # $1=label — bootout if loaded, wait for teardown, then bootstrap
@@ -104,6 +109,6 @@ done
 echo "✓ installed + started:"
 echo "    com.carthing.feeder  → feeder on :4000"
 echo "    com.carthing.tunnel  → adb reverse + kiosk auto-reload"
-echo "  logs: $REPO/.carthing-com.carthing.feeder.log"
-echo "        $REPO/.carthing-com.carthing.tunnel.log"
+echo "  logs: $HOME/.carthing-com.carthing.feeder.log"
+echo "        $HOME/.carthing-com.carthing.tunnel.log"
 echo "  manage: launchctl print $GUI/com.carthing.feeder   |   bun run daemon:uninstall"

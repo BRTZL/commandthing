@@ -14,7 +14,7 @@
     "device:connect": "bun run scripts/connect.ts",
     "daemon:install": "bash scripts/install-daemon.sh",
     "daemon:uninstall": "bash scripts/uninstall-daemon.sh",
-    "daemon:logs": "tail -f .carthing-com.carthing.feeder.log .carthing-com.carthing.tunnel.log",
+    "daemon:logs": "tail -f ~/.carthing-com.carthing.feeder.log ~/.carthing-com.carthing.tunnel.log",
     "device:reload": "bun run scripts/device.ts reload",
     "device:shot": "bun run scripts/device.ts shot",
     "device:open": "bun run scripts/device.ts open",

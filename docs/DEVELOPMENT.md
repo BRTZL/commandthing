@@ -136,7 +136,14 @@ Caveats:
 - **The daemon owns `:4000`.** Before running the feeder by hand
   (`bun run feeder` / `feeder:dev`), `bun run daemon:uninstall` first, or they'll
   fight over the port.
-- Logs land in `.carthing-com.carthing.{feeder,tunnel}.log` (gitignored).
+- Logs land in `~/.carthing-com.carthing.{feeder,tunnel}.log` (in `$HOME`, not the
+  repo — see below). Tail them with `bun run daemon:logs`.
+- **Why the agents run from `$HOME`, not the repo:** the repo is under `~/Documents`,
+  which is TCC-protected; a launchd agent can't `chdir` into (or write logs in) it
+  and the whole job dies with `EX_CONFIG(78)` — which looks exactly like "the feeder
+  never starts after a reboot." So the plists use `WorkingDirectory=$HOME` + absolute
+  script paths (the feeder/watchdog resolve their own files by `import.meta`, so cwd
+  is irrelevant). If the daemon ever shows `EX_CONFIG` again, that's the cause.
 
 ## Writing UI code: the Chromium-69 rules
 
