@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, MinusIcon, PlusIcon } from "../components/icons";
+import { ChevronLeftIcon, MinusIcon, PlusIcon, RefreshIcon } from "../components/icons";
 import { Button } from "../components/ui/button";
 import { goBack } from "../router";
 import { setSetting, useSettings } from "../settings";
@@ -6,6 +6,13 @@ import { useConnected, useHost } from "../store/dashboardStore";
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
+}
+
+/** Hard-reload the kiosk back to the board — recovers a stuck/disconnected UI
+ *  (renderer glitch, dropped WS) without touching the Mac. */
+function restart(): void {
+  window.location.hash = "#/";
+  window.location.reload();
 }
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
@@ -97,6 +104,15 @@ export function SettingsPage() {
             <span>Spotify Car Thing</span>
           </div>
         </div>
+
+        <Button
+          variant="secondary"
+          onClick={restart}
+          className="mt-8 h-12 w-full justify-center rounded-xl text-base font-semibold"
+        >
+          <RefreshIcon className="mr-2 h-5 w-5" />
+          Restart
+        </Button>
       </div>
     </div>
   );
