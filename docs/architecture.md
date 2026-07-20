@@ -31,8 +31,9 @@ protocol, preventing accidental resolution to a registry package during developm
 
 ### `packages/cli`
 
-The future npm distribution entry point. It currently manages Claude hooks and host diagnostics.
-It uses Node.js APIs rather than Bun APIs so `npx commandthing` works on a standard Node install.
+The npm distribution entry point. It packages the feeder, tunnel, device controller, and legacy
+dashboard; installs them into a versioned application runtime; and manages hooks, launchd, logs,
+and diagnostics. The CLI uses Node.js APIs so `npx commandthing` works on a standard Node install.
 
 ## Data transport
 

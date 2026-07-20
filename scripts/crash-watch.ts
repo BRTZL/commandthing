@@ -6,7 +6,7 @@
  * bisect which UI element is responsible (deploy a variant, watch the rate).
  *
  * Usage: bun run scripts/crash-watch.ts [minutes=20] [intervalSec=15] [label]
- * Log:   ~/.config/commandthing/logs/crash-watch.log
+ * Log:   ~/.commandthing/logs/crash-watch.log
  */
 import { join } from "node:path";
 import { config } from "../apps/feeder/src/config";

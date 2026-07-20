@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { access, chmod, copyFile, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { locations } from "./locations.js";
 
 const HOOK_EVENTS = [
   "UserPromptSubmit",
@@ -21,18 +21,6 @@ const DEFAULT_CONFIG = {
 };
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
-
-function locations() {
-  const stateDir =
-    process.env.COMMANDTHING_HOME ||
-    join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "commandthing");
-  return {
-    stateDir,
-    configPath: process.env.COMMANDTHING_CONFIG || join(stateDir, "config.json"),
-    forwarderPath: join(stateDir, "bin", "commandthing-hook.mjs"),
-    settingsPath: process.env.COMMANDTHING_CLAUDE_SETTINGS || join(homedir(), ".claude", "settings.json"),
-  };
-}
 
 async function exists(path) {
   try {
@@ -93,10 +81,10 @@ async function configuredFeederUrl() {
   return `http://localhost:${port}`;
 }
 
-async function writeSettings(settingsPath, settings, stateDir) {
+async function writeSettings(settingsPath, settings, homeDir) {
   await mkdir(dirname(settingsPath), { recursive: true });
   if (await exists(settingsPath)) {
-    const backupDir = join(stateDir, "backups");
+    const backupDir = join(homeDir, "backups");
     await mkdir(backupDir, { recursive: true });
     const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
     await copyFile(settingsPath, join(backupDir, `claude-settings-${stamp}.json`));
@@ -120,7 +108,7 @@ function validateFeederUrl(value) {
 }
 
 export async function setupHooks({ feederUrl }) {
-  const { stateDir, forwarderPath, settingsPath } = locations();
+  const { homeDir, forwarderPath, settingsPath } = locations();
   await initConfig({ quiet: true });
   const normalizedUrl = validateFeederUrl(feederUrl || (await configuredFeederUrl()));
   const templatePath = join(packageRoot, "templates", "commandthing-hook.mjs");
@@ -140,7 +128,7 @@ export async function setupHooks({ feederUrl }) {
   for (const event of HOOK_EVENTS) {
     hooks[event] = [...withoutCommandThingHooks(hooks[event]), { hooks: [{ type: "command", command }] }];
   }
-  await writeSettings(settingsPath, { ...settings, hooks }, stateDir);
+  await writeSettings(settingsPath, { ...settings, hooks }, homeDir);
 
   console.log(`CommandThing hooks installed in ${settingsPath}`);
   console.log(`Hook forwarder: ${forwarderPath}`);
@@ -148,8 +136,18 @@ export async function setupHooks({ feederUrl }) {
 }
 
 export async function initConfig({ quiet = false } = {}) {
-  const { configPath, stateDir } = locations();
-  await mkdir(stateDir, { recursive: true });
+  const { configPath, homeDir, legacyHomeDir } = locations();
+  if (
+    !process.env.COMMANDTHING_HOME &&
+    !process.env.COMMANDTHING_CONFIG &&
+    !(await exists(homeDir)) &&
+    (await exists(legacyHomeDir))
+  ) {
+    await mkdir(dirname(homeDir), { recursive: true });
+    await rename(legacyHomeDir, homeDir);
+    if (!quiet) console.log(`CommandThing data migrated from ${legacyHomeDir} to ${homeDir}`);
+  }
+  await mkdir(homeDir, { recursive: true });
   await mkdir(dirname(configPath), { recursive: true });
   if (!(await exists(configPath))) {
     await writeFile(configPath, `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`, "utf8");
@@ -170,7 +168,7 @@ export function printConfigPath() {
 }
 
 export async function removeHooks() {
-  const { forwarderPath, settingsPath, stateDir } = locations();
+  const { forwarderPath, settingsPath, homeDir } = locations();
   if (!(await exists(settingsPath))) {
     console.log(`No Claude settings found at ${settingsPath}`);
     return;
@@ -182,7 +180,7 @@ export async function removeHooks() {
     if (remaining.length > 0) hooks[event] = remaining;
     else delete hooks[event];
   }
-  await writeSettings(settingsPath, { ...settings, hooks }, stateDir);
+  await writeSettings(settingsPath, { ...settings, hooks }, homeDir);
   await unlink(forwarderPath).catch(() => {});
   console.log(`CommandThing hooks removed from ${settingsPath}`);
 }

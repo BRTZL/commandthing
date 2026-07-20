@@ -10,6 +10,7 @@
     "bin",
     "src",
     "templates",
+    "runtime",
     "README.md"
   ],
   "engines": {
@@ -17,8 +18,9 @@
   },
   "scripts": {
     "start": "node bin/commandthing.js",
-    "check": "node --check bin/commandthing.js && node --check src/commands.js && node --check templates/commandthing-hook.mjs",
+    "check": "node --check bin/commandthing.js && node --check src/commands.js && node --check src/locations.js && node --check src/services.js && node --check templates/commandthing-hook.mjs",
     "test": "node --test",
+    "prepack": "bun run ../../scripts/build-runtime.ts",
     "pack:check": "npm pack --dry-run"
   },
   "repository": {

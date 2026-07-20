@@ -40,7 +40,7 @@ Pass script arguments after `--` so pnpm does not consume them.
 
 ## launchd development installation
 
-The source checkout includes macOS LaunchAgent helpers:
+The CLI manages the macOS LaunchAgents; these aliases remain for contributors:
 
 ```bash
 pnpm daemon:install
@@ -48,10 +48,11 @@ pnpm daemon:logs
 pnpm daemon:uninstall
 ```
 
-The installer generates machine-specific paths at runtime; none are committed. Agents use the
+The installer packages the feeder, tunnel, device helper, and legacy dashboard into
+`~/.commandthing/runtime/<version>`, so launchd never depends on the checkout path. Agents use the
 `com.commandthing.feeder` and `com.commandthing.tunnel` labels. Installation removes labels from
 the pre-rename `com.carthing.*` version to prevent port conflicts. Logs are written under
-`~/.config/commandthing/logs`; `pnpm daemon:logs` follows both files.
+`~/.commandthing/logs`; `pnpm daemon:logs` follows both files.
 
 ## Chromium 69 rules
 

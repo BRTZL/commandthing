@@ -27,14 +27,15 @@ cd commandthing
 pnpm install
 ```
 
-Create the machine-level config. This also creates `~/.config/commandthing`:
+For a normal installation, run the idempotent setup command:
 
 ```bash
-pnpm commandthing config init
+pnpm commandthing setup
 ```
 
-CommandThing does not require a project `.env` file. See [Configuration](configuration.md) for
-ports, Open Usage, logs, and other local data.
+It creates `~/.commandthing`, installs the packaged runtime and Claude hooks, starts the macOS
+services, and waits for the dashboard to become healthy. CommandThing does not require a project
+`.env` file. See [Configuration](configuration.md) for ports, Open Usage, logs, and other local data.
 
 ## Production preview
 
@@ -71,7 +72,7 @@ Install CommandThing's hooks safely:
 pnpm commandthing setup hooks
 ```
 
-The CLI creates a small stable forwarder under `~/.config/commandthing`, backs up Claude settings,
+The CLI creates a small stable forwarder under `~/.commandthing`, backs up Claude settings,
 and merges its entries with existing hooks. See [CLI](cli.md) for removal and diagnostics.
 
 ## Next steps

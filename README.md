@@ -31,20 +31,20 @@ Requirements: macOS, [Bun](https://bun.sh), Node.js, and pnpm.
 git clone https://github.com/BRTZL/commandthing.git
 cd commandthing
 pnpm install
-pnpm build
-pnpm feeder
+pnpm commandthing setup
 ```
 
 Open <http://localhost:4000>. The Usage page also expects the optional Open Usage service at
 `http://localhost:6736/v1/usage`.
 
-Machine settings, logs, backups, and screenshots live under `~/.config/commandthing`; project
+Machine settings, runtime files, logs, backups, and screenshots live under `~/.commandthing`; project
 `.env` files are not needed.
 
-Install Claude Code hooks without editing `~/.claude/settings.json` by hand:
+Setup builds and installs the self-contained runtime, configures Claude Code hooks, and starts the
+background services. Check it at any time with:
 
 ```bash
-pnpm commandthing setup hooks
+pnpm commandthing status
 ```
 
 ## Monorepo
@@ -56,7 +56,7 @@ apps/
 packages/
   cli/             Publishable `commandthing` executable
   protocol/        Shared dashboard/feeder wire contracts
-scripts/           Device, tunnel, daemon, and diagnostic tooling
+scripts/           Runtime build, device, tunnel, and diagnostic tooling
 docs/              Installation, architecture, development, and release guides
 ```
 

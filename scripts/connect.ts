@@ -17,10 +17,15 @@
  * Usage: pnpm device:connect (default port 4000)
  */
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { config } from "../apps/feeder/src/config";
 
 const PORT = Number(process.argv[2] ?? config.server.port);
-const REPO = new URL("..", import.meta.url).pathname; // trailing slash
+const packagedDevice = join(import.meta.dir, "device.js");
+const DEVICE_SCRIPT = existsSync(packagedDevice)
+  ? packagedDevice
+  : new URL("device.ts", import.meta.url).pathname;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const log = (m: string) => console.log(`[commandthing] ${new Date().toTimeString().slice(0, 8)} ${m}`);
@@ -50,7 +55,7 @@ async function feederUp(): Promise<boolean> {
 async function recoverKiosk(): Promise<void> {
   for (let i = 0; i < 30; i++) {
     if (await feederUp()) {
-      await run([process.execPath, "run", `${REPO}scripts/device.ts`, "reload"]);
+      await run([process.execPath, "run", DEVICE_SCRIPT, "reload"]);
       return;
     }
     await sleep(2000);

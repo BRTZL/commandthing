@@ -32,7 +32,10 @@ import { getUsage } from "./usage.ts";
 
 const { port: PORT, host: HOST } = config.server;
 const { sessionsMs: POLL_MS, mediaMs: MEDIA_MS } = config.refresh;
-const DIST_DIR = join(import.meta.dir, "..", "..", "dashboard", "dist");
+const packagedDist = join(import.meta.dir, "dashboard");
+const DIST_DIR = existsSync(join(packagedDist, "index.html"))
+  ? packagedDist
+  : join(import.meta.dir, "..", "..", "dashboard", "dist");
 
 const hooks = new HookStore();
 const clients = new Set<ServerWebSocket<unknown>>();

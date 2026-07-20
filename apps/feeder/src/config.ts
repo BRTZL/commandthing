@@ -14,9 +14,7 @@ export const DEFAULT_CONFIG: CommandThingConfig = {
   refresh: { sessionsMs: 2000, mediaMs: 1000 },
 };
 
-const configRoot =
-  process.env.COMMANDTHING_HOME?.trim() ||
-  join(process.env.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config"), "commandthing");
+const configRoot = process.env.COMMANDTHING_HOME?.trim() || join(homedir(), ".commandthing");
 
 export const configPath = process.env.COMMANDTHING_CONFIG?.trim() || join(configRoot, "config.json");
 

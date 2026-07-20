@@ -9,7 +9,7 @@ curl http://localhost:6736/v1/usage
 curl http://localhost:4000/api/usage
 ```
 
-Change `openUsage.url` in `~/.config/commandthing/config.json` when the service uses another
+Change `openUsage.url` in `~/.commandthing/config.json` when the service uses another
 address, then restart the feeder. `OPEN_USAGE_URL` remains a legacy process-level override.
 
 ## Reset countdown shows thousands of days

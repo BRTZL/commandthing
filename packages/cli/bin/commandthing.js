@@ -11,6 +11,17 @@ import {
   setupHooks,
   showConfig,
 } from "../src/commands.js";
+import {
+  followLogs,
+  installServices,
+  purgeHome,
+  restartServices,
+  startServices,
+  statusServices,
+  stopServices,
+  uninstallServices,
+  waitForHealthyFeeder,
+} from "../src/services.js";
 
 const packagePath = fileURLToPath(new URL("../package.json", import.meta.url));
 const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
@@ -21,26 +32,38 @@ function option(name, fallback) {
   return index >= 0 && args[index + 1] ? args[index + 1] : fallback;
 }
 
+function flag(name) {
+  return args.includes(name);
+}
+
 function help() {
   console.log(`CommandThing ${packageJson.version}
 
 Usage:
-  commandthing setup hooks [--feeder-url URL]  Install Claude Code hooks
-  commandthing remove hooks                  Remove CommandThing hooks
-  commandthing config init                  Create the user config file
-  commandthing config show                  Print the effective user config
-  commandthing config path                  Print the config file location
-  commandthing hook                          Forward one hook payload from stdin
-  commandthing doctor                        Check local requirements
-  commandthing --version                     Print the CLI version
-  commandthing --help                        Show this help
+  commandthing setup [--skip-hooks]            Install and start CommandThing
+  commandthing setup hooks [--feeder-url URL]  Install only Claude Code hooks
+  commandthing remove hooks                   Remove CommandThing hooks
+  commandthing start                          Start background services
+  commandthing stop                           Stop background services
+  commandthing restart                        Restart background services
+  commandthing status                         Show service and dashboard status
+  commandthing logs                           Follow feeder and tunnel logs
+  commandthing uninstall [--purge]            Remove services; optionally delete all data
+  commandthing config init                    Create the user config file
+  commandthing config show                    Print the user config
+  commandthing config path                    Print the config file location
+  commandthing hook                           Forward one hook payload from stdin
+  commandthing doctor                         Check local requirements
+  commandthing --version                      Print the CLI version
+  commandthing --help                         Show this help
 
 Until the npm package is published, contributors can run the same commands with:
   pnpm commandthing <command>`);
 }
 
 async function main() {
-  const [command, target] = args;
+  const [command, rawTarget] = args;
+  const target = rawTarget?.startsWith("--") ? undefined : rawTarget;
   if (!command || command === "--help" || command === "-h" || command === "help") {
     help();
     return;
@@ -49,8 +72,18 @@ async function main() {
     console.log(packageJson.version);
     return;
   }
-  if (command === "setup" && (!target || target === "hooks")) {
+  if (command === "setup" && target === "hooks") {
     await setupHooks({ feederUrl: option("--feeder-url") });
+    return;
+  }
+  if (command === "setup" && !target) {
+    await initConfig({ quiet: true });
+    const runtimeDir = await installServices(packageJson.version);
+    if (!flag("--skip-hooks")) await setupHooks({ feederUrl: option("--feeder-url") });
+    const feederUrl = await waitForHealthyFeeder();
+    console.log(`CommandThing ${packageJson.version} is ready`);
+    console.log(`Runtime: ${runtimeDir}`);
+    console.log(`Dashboard: ${feederUrl}`);
     return;
   }
   if (command === "remove" && target === "hooks") {
@@ -67,6 +100,45 @@ async function main() {
   }
   if (command === "config" && target === "path") {
     printConfigPath();
+    return;
+  }
+  if (command === "start") {
+    startServices();
+    await waitForHealthyFeeder();
+    return;
+  }
+  if (command === "stop") {
+    stopServices();
+    return;
+  }
+  if (command === "restart") {
+    restartServices();
+    await waitForHealthyFeeder();
+    return;
+  }
+  if (command === "status") {
+    await statusServices();
+    return;
+  }
+  if (command === "logs") {
+    await followLogs();
+    return;
+  }
+  if (command === "uninstall") {
+    await uninstallServices();
+    await removeHooks();
+    if (flag("--purge")) await purgeHome();
+    else console.log("Config, logs, screenshots, and backups were kept; use --purge to remove them");
+    return;
+  }
+  if (command === "service" && target === "install") {
+    await initConfig({ quiet: true });
+    await installServices(packageJson.version);
+    await waitForHealthyFeeder();
+    return;
+  }
+  if (command === "service" && target === "uninstall") {
+    await uninstallServices();
     return;
   }
   if (command === "hook") {

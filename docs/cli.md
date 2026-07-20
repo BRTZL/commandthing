@@ -20,13 +20,37 @@ npx commandthing@latest --help
 Do not put the `npx` form in automated hooks. Setup installs a stable local forwarder so hooks stay
 fast and continue working offline.
 
-## Install Claude hooks
+## Set up CommandThing
+
+```bash
+pnpm commandthing setup
+```
+
+Setup installs the versioned runtime under `~/.commandthing/runtime`, installs Claude hooks, creates
+the macOS LaunchAgents, starts them, and waits for the feeder health check. It is safe to rerun for
+an update or repair. Pass `--skip-hooks` when Claude integration is not wanted.
+
+After setup, manage the installation with:
+
+```bash
+pnpm commandthing status
+pnpm commandthing logs
+pnpm commandthing start
+pnpm commandthing stop
+pnpm commandthing restart
+pnpm commandthing uninstall
+```
+
+Normal uninstall keeps config, logs, screenshots, and backups. `uninstall --purge` removes the
+entire `~/.commandthing` directory.
+
+## Install only Claude hooks
 
 ```bash
 pnpm commandthing setup hooks
 ```
 
-Setup reads the feeder port from `~/.config/commandthing/config.json`. Use an explicit remote
+Hook setup reads the feeder port from `~/.commandthing/config.json`. Use an explicit remote
 address only when necessary:
 
 ```bash
@@ -36,8 +60,8 @@ pnpm commandthing setup hooks --feeder-url http://localhost:4000
 Setup performs the following operations:
 
 1. Validates the feeder URL.
-2. Writes `~/.config/commandthing/bin/commandthing-hook.mjs`.
-3. Backs up existing Claude settings under `~/.config/commandthing/backups/`.
+2. Writes `~/.commandthing/bin/commandthing-hook.mjs`.
+3. Backs up existing Claude settings under `~/.commandthing/backups/`.
 4. Atomically merges CommandThing into each supported Claude hook event.
 5. Removes older CommandThing hook entries so rerunning setup is idempotent.
 
@@ -85,7 +109,7 @@ Claude Code.
 
 | Variable | Purpose |
 |---|---|
-| `COMMANDTHING_HOME` | Override the `~/.config/commandthing` data directory |
+| `COMMANDTHING_HOME` | Override the `~/.commandthing` data directory |
 | `COMMANDTHING_CLAUDE_SETTINGS` | Override the Claude settings file |
 | `COMMANDTHING_FEEDER_URL` | Override the URL used by `commandthing hook` |
 | `CARTHING_FEEDER` | Legacy alias for `COMMANDTHING_FEEDER_URL` |

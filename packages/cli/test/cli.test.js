@@ -90,3 +90,42 @@ test("hook setup uses the configured feeder port", async () => {
     await rm(paths.root, { recursive: true, force: true });
   }
 });
+
+test("the default application home is ~/.commandthing", async () => {
+  const paths = await fixture();
+  try {
+    const env = { ...process.env, HOME: paths.root };
+    delete env.COMMANDTHING_HOME;
+    delete env.COMMANDTHING_CONFIG;
+    const result = spawnSync(process.execPath, [cliPath, "config", "path"], {
+      encoding: "utf8",
+      env,
+    });
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout.trim(), join(paths.root, ".commandthing", "config.json"));
+  } finally {
+    await rm(paths.root, { recursive: true, force: true });
+  }
+});
+
+test("config init migrates the former ~/.config/commandthing directory", async () => {
+  const paths = await fixture();
+  try {
+    const legacyHome = join(paths.root, ".config", "commandthing");
+    await mkdir(legacyHome, { recursive: true });
+    await writeFile(join(legacyHome, "config.json"), '{"server":{"port":4567}}\n');
+    const env = { ...process.env, HOME: paths.root };
+    delete env.COMMANDTHING_HOME;
+    delete env.COMMANDTHING_CONFIG;
+    const result = spawnSync(process.execPath, [cliPath, "config", "init"], {
+      encoding: "utf8",
+      env,
+    });
+    assert.equal(result.status, 0);
+    const migrated = JSON.parse(await readFile(join(paths.root, ".commandthing", "config.json"), "utf8"));
+    assert.equal(migrated.server.port, 4567);
+    await assert.rejects(readFile(join(legacyHome, "config.json"), "utf8"));
+  } finally {
+    await rm(paths.root, { recursive: true, force: true });
+  }
+});

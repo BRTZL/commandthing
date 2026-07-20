@@ -8,7 +8,7 @@
  * baseline (and later, a before/after for any fix).
  *
  * Usage: bun run scripts/crash-monitor.ts [minutes=120] [intervalSec=60]
- * Log:   ~/.config/commandthing/logs/crash-monitor.log (also echoed to stdout)
+ * Log:   ~/.commandthing/logs/crash-monitor.log (also echoed to stdout)
  */
 
 import { join } from "node:path";
