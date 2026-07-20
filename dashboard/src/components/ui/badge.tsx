@@ -17,6 +17,7 @@ const variants = {
   outline: "border-border bg-transparent text-foreground",
   working: "border-transparent bg-working text-primary-foreground",
   waiting: "border-transparent bg-waiting text-primary-foreground",
+  done: "border-transparent bg-done text-primary-foreground",
   destructive: "border-transparent bg-destructive text-destructive-foreground",
 } as const;
 

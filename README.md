@@ -82,7 +82,14 @@ scripts/claude-hook.sh  Forwards Claude hook payloads to the feeder
 - **Without hooks (default):** a recency heuristic from transcript mtime —
   wrote in the last 90s = `working`, last 30m = `waiting`, older = `idle`.
 - **With hooks (recommended, accurate):** Claude Code hooks report real events
-  and override the heuristic. `Stop`/`Notification` → **waiting on you**;
+  and override the heuristic. Two distinct "not working" states:
+  - **needs you** (warning) — Claude is *blocked on you*: a `Notification`
+    (permission prompt / "waiting for your input"), or a `PreToolUse` for a
+    tool that always asks (`AskUserQuestion`, `ExitPlanMode`). Only this state
+    raises the toast + beep.
+  - **your turn** (`done`, not a warning) — `Stop`: Claude finished its turn
+    and is waiting for your next prompt, but isn't blocked on anything.
+
   `UserPromptSubmit`/tool use → `working`; `SessionEnd` clears it.
 
 ### Hooks setup (optional)
@@ -93,6 +100,7 @@ Add to `~/.claude/settings.json` (the feeder must be running):
 {
   "hooks": {
     "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "/Users/bartuozel/Documents/workspace/spotify-carthing/scripts/claude-hook.sh" }] }],
+    "PreToolUse":       [{ "hooks": [{ "type": "command", "command": "/Users/bartuozel/Documents/workspace/spotify-carthing/scripts/claude-hook.sh" }] }],
     "Stop":             [{ "hooks": [{ "type": "command", "command": "/Users/bartuozel/Documents/workspace/spotify-carthing/scripts/claude-hook.sh" }] }],
     "Notification":     [{ "hooks": [{ "type": "command", "command": "/Users/bartuozel/Documents/workspace/spotify-carthing/scripts/claude-hook.sh" }] }],
     "SessionStart":     [{ "hooks": [{ "type": "command", "command": "/Users/bartuozel/Documents/workspace/spotify-carthing/scripts/claude-hook.sh" }] }],

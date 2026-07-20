@@ -156,6 +156,15 @@ lines or the device blank-screens / mis-renders while your Mac browser looks fin
   `hsl(var(--token) / <alpha-value>)`.
 - **No `oklch()`** colors, **no flexbox `gap`** (use margins / `space-*`; grid
   `gap` is OK), no `:where()`/`:is()`.
+- **Do not trust the device wall clock for relative times.** The Car Thing clock
+  may be years out of date. Anchor countdowns and “time ago” labels to a feeder
+  timestamp such as `DashboardState.generatedAt` or `UsageSummary.fetchedAt`,
+  then advance that value locally. Do not subtract `Date.now()` from a
+  server-provided timestamp.
+- **Parse server timestamps explicitly.** Chromium 69's date parser is less
+  consistent than current browsers. For the Open Usage ISO-8601 timestamps, use
+  the legacy-safe parser in `UsagePage.tsx` (or normalize to epoch milliseconds
+  in the feeder) instead of depending on `Date.parse()`.
 - In any expression you `Runtime.evaluate` on the device, **no optional chaining
   (`?.`) / nullish coalescing (`??`)** — Chromium 69 can't parse them.
 - Fonts are **system-only** (`-apple-system, …`). Your Mac shows San Francisco;
@@ -219,6 +228,9 @@ Device scripts:
   window vs. filling the native panel). To compare apples-to-apples, view
   `http://localhost:4000` (production preview) on the Mac, not the `:5173` dev
   server. Hard-reload (⌘⇧R) if a tab predates your last build.
+- **A reset countdown shows thousands of days** — the UI is using the device's
+  stale wall clock. Base the countdown on the feeder's `fetchedAt` timestamp as
+  described in the Chromium-69 rules above, then rebuild and hard-reload.
 - **`adb devices` empty** — replug; prefer a USB-2 hub. After `adb kill-server`,
   the device may need a replug to re-enumerate.
 - **Kiosk blank / not updating** — `bun run device:reload`; check `bun run

@@ -190,12 +190,24 @@ function decodeDir(dir: string): string {
   return dir.replace(/^-/, "/").replace(/-/g, "/");
 }
 
+// A hook lands just after the write that triggered it (Stop fires once the
+// final message is flushed), so allow this much slack before treating a newer
+// transcript as evidence the session moved past the hook.
+const HOOK_LEAD_MS = 5_000;
+
 export function deriveState(
   mtimeMs: number,
   hook: ReturnType<HookStore["get"]>,
   now: number,
 ): { state: SessionState; needsInput: boolean; source: "file" | "hook" } {
-  if (hook && now - hook.ts < ACTIVE_WINDOW_MS) {
+  // Hooks are authoritative — but only while they're the latest thing we know
+  // about the session. If the transcript was written AFTER the hook fired, the
+  // session moved on and we missed the follow-up hook (claude-hook.sh drops
+  // POSTs on its 1s timeout), so the file is fresher. Trusting it here
+  // self-heals a stale "needs you"/"done" once the session keeps going.
+  const hookFresh = hook && now - hook.ts < ACTIVE_WINDOW_MS;
+  const fileMovedPastHook = hook && mtimeMs > hook.ts + HOOK_LEAD_MS;
+  if (hookFresh && !fileMovedPastHook) {
     return { state: hook.state, needsInput: hook.needsInput, source: "hook" };
   }
   const age = now - mtimeMs;
@@ -204,7 +216,20 @@ export function deriveState(
   return { state: "idle", needsInput: false, source: "file" };
 }
 
-const STATE_RANK: Record<SessionState, number> = { waiting: 0, working: 1, idle: 2 };
+/**
+ * Display groups, top to bottom:
+ *   0 needs you — blocked on you (a question / permission prompt)
+ *   1 working   — actively streaming right now (live, worth watching)
+ *   2 your turn — finished its turn, awaiting your next prompt
+ *   3 other     — idle / quietly-recent (file-heuristic waiting)
+ * Within a group, sessions sort newest-first by last message (lastActivity).
+ */
+function sortGroup(s: ClaudeSession): number {
+  if (s.needsInput) return 0; // needs you
+  if (s.state === "working") return 1; // working (live)
+  if (s.state === "done") return 2; // your turn
+  return 3; // idle / file-heuristic waiting
+}
 
 export function buildSessions(hooks: HookStore, now = Date.now()): ClaudeSession[] {
   const sessions: ClaudeSession[] = [];
@@ -239,9 +264,8 @@ export function buildSessions(hooks: HookStore, now = Date.now()): ClaudeSession
   }
 
   sessions.sort((a, b) => {
-    if (a.needsInput !== b.needsInput) return a.needsInput ? -1 : 1;
-    const r = STATE_RANK[a.state] - STATE_RANK[b.state];
-    return r !== 0 ? r : b.lastActivity - a.lastActivity;
+    const g = sortGroup(a) - sortGroup(b);
+    return g !== 0 ? g : b.lastActivity - a.lastActivity; // newest message first
   });
 
   return sessions.slice(0, MAX_SESSIONS);

@@ -20,6 +20,7 @@ export default {
         card: { DEFAULT: c("--card"), foreground: c("--card-foreground") },
         working: c("--working"),
         waiting: c("--waiting"),
+        done: c("--done"),
         idle: c("--idle"),
         thinking: c("--thinking"),
       },

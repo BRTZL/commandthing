@@ -17,7 +17,7 @@ export interface NocturneEvent<T = unknown> {
   data: T;
 }
 
-export type SessionState = "working" | "waiting" | "idle";
+export type SessionState = "working" | "waiting" | "done" | "idle";
 
 export interface ClaudeSession {
   /** Session UUID (the transcript filename, minus .jsonl). */
@@ -35,11 +35,16 @@ export interface ClaudeSession {
   lastActivity: number;
   /**
    * working  = streaming right now (very recent write / UserPromptSubmit hook)
-   * waiting  = recently active, likely waiting on you (Stop/Notification hook)
+   * waiting  = blocked on you with a question/permission (always needsInput)
+   * done     = finished its turn — your move, but not blocked on anything
    * idle     = quiet for a while
    */
   state: SessionState;
-  /** True when a hook reported Claude is explicitly blocked on your input. */
+  /**
+   * True only when Claude is actually blocked on you — a question (e.g.
+   * AskUserQuestion) or a permission prompt — and cannot continue without an
+   * answer. A finished turn ("done") is NOT needsInput; it's just your move.
+   */
   needsInput: boolean;
   lastPrompt: string | null;
   permissionMode: string | null;

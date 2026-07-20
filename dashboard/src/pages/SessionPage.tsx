@@ -69,9 +69,9 @@ export function SessionPage({ id }: { id: string }) {
           <span className="text-2xl font-bold">{detail.project}</span>
           <Badge
             data-state={detail.state}
-            className="rounded-full bg-idle px-3 py-1 text-sm uppercase tracking-wide data-[state=waiting]:bg-waiting data-[state=working]:bg-working"
+            className="rounded-full bg-idle px-3 py-1 text-sm uppercase tracking-wide data-[state=waiting]:bg-waiting data-[state=working]:bg-working data-[state=done]:bg-done"
           >
-            {detail.needsInput ? "needs you" : detail.state}
+            {detail.needsInput ? "needs you" : detail.state === "done" ? "your turn" : detail.state}
           </Badge>
         </div>
         {detail.title && <div className="mt-1 text-base text-muted-foreground">{detail.title}</div>}
