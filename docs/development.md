@@ -2,8 +2,8 @@
 
 ## Tooling model
 
-pnpm manages the monorepo and its single `pnpm-lock.yaml`. Bun remains the runtime for the feeder,
-device tools, and scripts that use Bun APIs.
+pnpm manages the monorepo and its single `pnpm-lock.yaml`. Node.js runs the feeder, CLI, device
+tools, and installed services. esbuild bundles the installable runtime during package preparation.
 
 Workspace dependencies use `workspace:*`. Add dependencies to the package that imports them rather
 than relying on packages hoisted at the root.
@@ -15,7 +15,7 @@ than relying on packages hoisted at the root.
 | `pnpm install` | Install every workspace package |
 | `pnpm dev` | Run feeder and Vite together |
 | `pnpm feeder` | Run the feeder on port 4000 |
-| `pnpm feeder:dev` | Run the feeder with Bun watch mode |
+| `pnpm feeder:dev` | Run the feeder with TSX watch mode |
 | `pnpm ui` | Run only Vite on port 5173 |
 | `pnpm build` | Build the Chromium 69 production dashboard |
 | `pnpm typecheck` | Type-check the dashboard and feeder |
@@ -25,34 +25,41 @@ than relying on packages hoisted at the root.
 | `pnpm check` | Check formatting and lint without modifying files |
 | `pnpm check:write` | Apply safe Biome formatting/fixes |
 
-## Device commands
+## CLI device commands
 
 | Command | Purpose |
 |---|---|
-| `pnpm device:connect` | Maintain the ADB reverse tunnel |
-| `pnpm deploy` | Build and hard-reload the device kiosk |
-| `pnpm device:reload` | Reload without rebuilding |
-| `pnpm device:shot` | Save a device screenshot |
-| `pnpm device:open -- /usage` | Navigate to a route |
-| `pnpm device:info` | Print kiosk URL, user agent, and viewport |
+| `pnpm commandthing setup` | Build/install runtime and maintain the ADB reverse tunnel |
+| `pnpm commandthing device reload` | Hard-reload the kiosk |
+| `pnpm commandthing device screenshot` | Save a device screenshot |
+| `pnpm commandthing device open /usage` | Navigate to a route |
+| `pnpm commandthing device info` | Print kiosk URL, user agent, and viewport |
 
-Pass script arguments after `--` so pnpm does not consume them.
+## Service lifecycle
 
-## launchd development installation
-
-The CLI manages the macOS LaunchAgents; these aliases remain for contributors:
+The CLI manages the macOS LaunchAgents:
 
 ```bash
-pnpm daemon:install
-pnpm daemon:logs
-pnpm daemon:uninstall
+pnpm commandthing setup --skip-hooks
+pnpm commandthing logs
+pnpm commandthing uninstall
 ```
 
 The installer packages the feeder, tunnel, device helper, and legacy dashboard into
 `~/.commandthing/runtime/<version>`, so launchd never depends on the checkout path. Agents use the
 `com.commandthing.feeder` and `com.commandthing.tunnel` labels. Installation removes labels from
 the pre-rename `com.carthing.*` version to prevent port conflicts. Logs are written under
-`~/.commandthing/logs`; `pnpm daemon:logs` follows both files.
+`~/.commandthing/logs`; `pnpm commandthing logs` follows both files.
+
+Advanced device investigations are also CLI-owned:
+
+```bash
+pnpm commandthing diagnostics layers
+pnpm commandthing diagnostics eval 'location.href'
+pnpm commandthing diagnostics crash-watch 20 15 baseline
+pnpm commandthing diagnostics crash-monitor 120 60
+pnpm commandthing diagnostics parse-dump path/to/dump.dmp
+```
 
 ## Chromium 69 rules
 

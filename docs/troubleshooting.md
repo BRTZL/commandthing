@@ -35,7 +35,7 @@ Then reload <http://localhost:4000>.
 The launchd agent may already own it:
 
 ```bash
-pnpm daemon:uninstall
+pnpm commandthing stop
 pnpm feeder
 ```
 
@@ -47,8 +47,8 @@ device or adb server restarts.
 ## Kiosk does not recover after feeder restart
 
 ```bash
-pnpm device:connect
-pnpm device:reload
+pnpm commandthing restart
+pnpm commandthing device reload
 ```
 
 The first command recreates the tunnel; the second forces the kiosk off its connection-error page.

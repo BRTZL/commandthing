@@ -206,7 +206,6 @@ export async function doctor() {
   const { configPath, forwarderPath, settingsPath } = locations();
   const checks = [
     ["Node.js", process.version, true],
-    ["Bun", commandVersion("bun"), Boolean(commandVersion("bun"))],
     ["adb", commandVersion("adb", ["version"]), Boolean(commandVersion("adb", ["version"]))],
     ["Claude settings", settingsPath, await exists(settingsPath)],
     ["CommandThing config", configPath, await exists(configPath)],

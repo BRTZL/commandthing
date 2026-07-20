@@ -5,7 +5,7 @@ CommandThing separates host integrations from the constrained device renderer.
 ```text
 Claude hooks ─┐
 Claude logs  ─┤
-Open Usage   ─┼─> apps/feeder (Bun, Mac) ── WebSocket ──> apps/dashboard (Car Thing)
+Open Usage   ─┼─> apps/feeder (Node.js, Mac) ── WebSocket ──> apps/dashboard (Car Thing)
 Spotify      ─┘             │
                             └─ HTTP UI, health, artwork, and debug endpoints
 ```
@@ -20,7 +20,7 @@ connection.
 
 ### `apps/feeder`
 
-A Bun service that runs on the host computer. It watches Claude session transcripts and hook
+A Node.js service that runs on the host computer. It watches Claude session transcripts and hook
 signals, polls Open Usage, controls Spotify on macOS, serves the dashboard, broadcasts state, and
 answers WebSocket requests.
 
@@ -34,6 +34,10 @@ protocol, preventing accidental resolution to a registry package during developm
 The npm distribution entry point. It packages the feeder, tunnel, device controller, and legacy
 dashboard; installs them into a versioned application runtime; and manages hooks, launchd, logs,
 and diagnostics. The CLI uses Node.js APIs so `npx commandthing` works on a standard Node install.
+
+Runtime TypeScript and build entries live inside this package because they exist solely to produce
+and operate the CLI distribution. There is deliberately no top-level `scripts/` directory and no
+parallel user-facing script interface.
 
 ## Data transport
 

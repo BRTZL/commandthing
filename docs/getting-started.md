@@ -8,7 +8,6 @@ connecting a Car Thing.
 - macOS
 - Node.js 18 or newer
 - pnpm 10 (the repository pins the expected version in `package.json`)
-- Bun
 - Optional: Android platform tools (`adb`) for a physical device
 - Optional: Open Usage on port `6736` for provider usage data
 

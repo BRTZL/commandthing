@@ -16,6 +16,7 @@ import {
   installServices,
   purgeHome,
   restartServices,
+  runRuntimeTool,
   startServices,
   statusServices,
   stopServices,
@@ -48,6 +49,8 @@ Usage:
   commandthing restart                        Restart background services
   commandthing status                         Show service and dashboard status
   commandthing logs                           Follow feeder and tunnel logs
+  commandthing device <command>               Inspect or control the connected device
+  commandthing diagnostics <command>          Run advanced device diagnostics
   commandthing uninstall [--purge]            Remove services; optionally delete all data
   commandthing config init                    Create the user config file
   commandthing config show                    Print the user config
@@ -124,21 +127,19 @@ async function main() {
     await followLogs();
     return;
   }
+  if (command === "device") {
+    await runRuntimeTool("device", args.slice(1));
+    return;
+  }
+  if (command === "diagnostics") {
+    await runRuntimeTool("diagnostics", args.slice(1));
+    return;
+  }
   if (command === "uninstall") {
     await uninstallServices();
     await removeHooks();
     if (flag("--purge")) await purgeHome();
     else console.log("Config, logs, screenshots, and backups were kept; use --purge to remove them");
-    return;
-  }
-  if (command === "service" && target === "install") {
-    await initConfig({ quiet: true });
-    await installServices(packageJson.version);
-    await waitForHealthyFeeder();
-    return;
-  }
-  if (command === "service" && target === "uninstall") {
-    await uninstallServices();
     return;
   }
   if (command === "hook") {

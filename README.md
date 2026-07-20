@@ -25,7 +25,7 @@ inside a clone instead of `npx commandthing@latest`.
 
 ## Quick start from source
 
-Requirements: macOS, [Bun](https://bun.sh), Node.js, and pnpm.
+Requirements: macOS, Node.js 18 or newer, and pnpm. ADB is optional until connecting hardware.
 
 ```bash
 git clone https://github.com/BRTZL/commandthing.git
@@ -52,16 +52,15 @@ pnpm commandthing status
 ```text
 apps/
   dashboard/       React + Vite UI compiled for Chromium 69
-  feeder/          Bun host service and WebSocket server
+  feeder/          Node.js host service and WebSocket server
 packages/
-  cli/             Publishable `commandthing` executable
+  cli/             CLI, installed runtime sources, and runtime build tooling
   protocol/        Shared dashboard/feeder wire contracts
-scripts/           Runtime build, device, tunnel, and diagnostic tooling
 docs/              Installation, architecture, development, and release guides
 ```
 
-pnpm manages the workspace and dependencies. Bun remains the runtime for the feeder and device
-tools.
+pnpm manages the workspace and dependencies. The published CLI bundles the host runtime, device
+controller, and diagnostics so installed users need only Node.js.
 
 ## Documentation
 

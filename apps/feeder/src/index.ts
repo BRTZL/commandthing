@@ -12,8 +12,11 @@
  */
 
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { hostname } from "node:os";
-import { join } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   type DashboardState,
   emptyState,
@@ -22,7 +25,7 @@ import {
   type NowPlaying,
   WS_TOPIC,
 } from "@commandthing/protocol";
-import type { ServerWebSocket } from "bun";
+import WebSocket, { WebSocketServer } from "ws";
 import { buildSessions } from "./claudeWatcher.ts";
 import { config, configPath } from "./config.ts";
 import { HookStore } from "./hooks.ts";
@@ -32,16 +35,17 @@ import { getUsage } from "./usage.ts";
 
 const { port: PORT, host: HOST } = config.server;
 const { sessionsMs: POLL_MS, mediaMs: MEDIA_MS } = config.refresh;
-const packagedDist = join(import.meta.dir, "dashboard");
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const packagedDist = join(moduleDir, "dashboard");
 const DIST_DIR = existsSync(join(packagedDist, "index.html"))
   ? packagedDist
-  : join(import.meta.dir, "..", "..", "dashboard", "dist");
+  : join(moduleDir, "..", "..", "dashboard", "dist");
 
 const hooks = new HookStore();
-const clients = new Set<ServerWebSocket<unknown>>();
+const clients = new Set<WebSocket>();
 let current: DashboardState = emptyState(hostname());
 let nowPlaying: NowPlaying | null = null;
-const artCache = new Map<string, ArrayBuffer>(); // proxied Spotify album art
+const artCache = new Map<string, Buffer>(); // proxied Spotify album art
 
 function rebuild(): void {
   const now = Date.now();
@@ -78,7 +82,7 @@ function broadcast(): void {
   const payload = JSON.stringify(envelope());
   for (const ws of clients) {
     try {
-      ws.send(payload);
+      if (ws.readyState === WebSocket.OPEN) ws.send(payload);
     } catch {
       /* dropped on next close */
     }
@@ -87,7 +91,7 @@ function broadcast(): void {
 
 /** nocturned-style request/response over the same socket (ports to the device). */
 async function handleRequest(
-  ws: ServerWebSocket<unknown>,
+  ws: WebSocket,
   msg: { id: string; method?: string; params?: any },
 ): Promise<void> {
   try {
@@ -112,101 +116,163 @@ async function handleRequest(
   }
 }
 
-async function serveStatic(pathname: string): Promise<Response> {
-  if (!existsSync(DIST_DIR)) {
-    return new Response(
-      "Dashboard not built yet. Run `pnpm build` at the workspace root, then reload. " +
-        "The WebSocket feed is live at /ws.",
-      { status: 200, headers: { "content-type": "text/plain" } },
-    );
-  }
-  const rel = pathname === "/" ? "/index.html" : pathname;
-  let file = Bun.file(join(DIST_DIR, rel));
-  if (!(await file.exists())) file = Bun.file(join(DIST_DIR, "index.html")); // SPA fallback
-  return new Response(file);
+const MIME: Record<string, string> = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".ttf": "font/ttf",
+};
+
+function send(res: ServerResponse, status: number, body: string | Buffer, headers = {}): void {
+  res.writeHead(status, headers);
+  res.end(body);
 }
 
-const server = Bun.serve({
-  port: PORT,
-  hostname: HOST,
-  async fetch(req, server) {
-    const url = new URL(req.url);
+function json(res: ServerResponse, value: unknown, status = 200): void {
+  send(res, status, JSON.stringify(value), { "content-type": "application/json; charset=utf-8" });
+}
 
-    if (url.pathname === "/ws") {
-      if (server.upgrade(req)) return undefined as unknown as Response;
-      return new Response("websocket upgrade failed", { status: 400 });
-    }
+async function requestJson(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    return null;
+  }
+}
 
+async function serveStatic(pathname: string, res: ServerResponse): Promise<void> {
+  if (!existsSync(DIST_DIR)) {
+    send(
+      res,
+      200,
+      "Dashboard not built yet. Run `pnpm build` at the workspace root, then reload. " +
+        "The WebSocket feed is live at /ws.",
+      { "content-type": "text/plain; charset=utf-8" },
+    );
+    return;
+  }
+  const rel = pathname === "/" ? "index.html" : decodeURIComponent(pathname).replace(/^\/+/, "");
+  const root = resolve(DIST_DIR);
+  let file = resolve(root, rel);
+  if (!file.startsWith(`${root}/`) || !existsSync(file)) file = join(root, "index.html");
+  send(res, 200, await readFile(file), {
+    "content-type": MIME[extname(file).toLowerCase()] || "application/octet-stream",
+  });
+}
+
+async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const url = new URL(req.url || "/", `http://${req.headers.host || `localhost:${PORT}`}`);
+  try {
     if (url.pathname === "/health") {
-      return Response.json({
+      json(res, {
         ok: true,
         clients: clients.size,
         sessions: current.sessions.length,
         generatedAt: current.generatedAt,
       });
+      return;
     }
 
     if (url.pathname === "/state") {
-      return Response.json(current);
+      json(res, current);
+      return;
     }
 
     // Album-art proxy: the device has no internet, so it loads Spotify CDN art
     // through here. Restricted to the Spotify image host; cached in memory.
     if (url.pathname === "/api/artwork") {
       const u = url.searchParams.get("u") ?? "";
-      if (!u.startsWith("https://i.scdn.co/")) return new Response("bad art url", { status: 400 });
+      if (!u.startsWith("https://i.scdn.co/")) {
+        send(res, 400, "bad art url");
+        return;
+      }
       const headers = { "content-type": "image/jpeg", "cache-control": "max-age=86400" };
       const hit = artCache.get(u);
-      if (hit) return new Response(hit, { headers });
-      try {
-        const buf = await (await fetch(u)).arrayBuffer();
-        artCache.set(u, buf);
-        return new Response(buf, { headers });
-      } catch {
-        return new Response("art fetch failed", { status: 502 });
+      if (hit) {
+        send(res, 200, hit, headers);
+        return;
       }
+      try {
+        const buf = Buffer.from(await (await fetch(u)).arrayBuffer());
+        artCache.set(u, buf);
+        send(res, 200, buf, headers);
+      } catch {
+        send(res, 502, "art fetch failed");
+      }
+      return;
     }
 
     // HTTP mirrors of the WS data (handy for curl/debugging; UI uses the WS).
     if (url.pathname === "/api/usage") {
-      return Response.json(getUsage());
+      json(res, getUsage());
+      return;
     }
     if (url.pathname.startsWith("/api/session/")) {
       const id = decodeURIComponent(url.pathname.slice("/api/session/".length));
       const detail = getSessionDetail(id, hooks);
-      if (!detail) return new Response("session not found", { status: 404 });
-      return Response.json(detail);
+      if (!detail) {
+        send(res, 404, "session not found");
+        return;
+      }
+      json(res, detail);
+      return;
     }
 
     if (url.pathname === "/hook" && req.method === "POST") {
-      const body = await req.json().catch(() => null);
+      const body = await requestJson(req);
       const changed = hooks.ingest(body);
       if (changed) rebuild();
-      return Response.json({ ok: changed });
+      json(res, { ok: changed });
+      return;
     }
 
-    return serveStatic(url.pathname);
-  },
-  websocket: {
-    open(ws) {
-      clients.add(ws);
-      ws.send(JSON.stringify(envelope()));
-    },
-    close(ws) {
-      clients.delete(ws);
-    },
-    message(ws, raw) {
-      let msg: any;
-      try {
-        msg = JSON.parse(typeof raw === "string" ? raw : raw.toString());
-      } catch {
-        return;
-      }
-      if (msg && msg.type === "request" && typeof msg.id === "string") {
-        void handleRequest(ws, msg);
-      }
-    },
-  },
+    await serveStatic(url.pathname, res);
+  } catch (error) {
+    console.error("[feeder] request failed", error);
+    if (!res.headersSent) send(res, 500, "internal server error");
+    else res.end();
+  }
+}
+
+const server = createServer((req, res) => {
+  void handleHttp(req, res);
+});
+const webSockets = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url || "/", `http://${req.headers.host || `localhost:${PORT}`}`);
+  if (url.pathname !== "/ws") {
+    socket.destroy();
+    return;
+  }
+  webSockets.handleUpgrade(req, socket, head, (ws) => webSockets.emit("connection", ws, req));
+});
+
+webSockets.on("connection", (ws) => {
+  clients.add(ws);
+  ws.send(JSON.stringify(envelope()));
+  ws.on("close", () => clients.delete(ws));
+  ws.on("message", (raw) => {
+    let msg: any;
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+    if (msg && msg.type === "request" && typeof msg.id === "string") {
+      void handleRequest(ws, msg);
+    }
+  });
+});
+
+await new Promise<void>((resolveListen, reject) => {
+  server.once("error", reject);
+  server.listen(PORT, HOST, () => resolveListen());
 });
 
 rebuild();
@@ -214,7 +280,7 @@ setInterval(rebuild, POLL_MS);
 refreshMedia();
 setInterval(refreshMedia, MEDIA_MS);
 
-console.log(`[feeder] http://localhost:${server.port}  ws://localhost:${server.port}/ws`);
+console.log(`[feeder] http://localhost:${PORT}  ws://localhost:${PORT}/ws`);
 console.log(`[feeder] config: ${configPath}${existsSync(configPath) ? "" : " (defaults)"}`);
 console.log(`[feeder] polling ~/.claude every ${POLL_MS}ms`);
-console.log(`[feeder] hook receiver: POST http://localhost:${server.port}/hook`);
+console.log(`[feeder] hook receiver: POST http://localhost:${PORT}/hook`);

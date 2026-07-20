@@ -1,7 +1,11 @@
 # CommandThing CLI
 
 The CLI is the machine-independent setup surface for users. Its source lives in `packages/cli` and
-uses Node.js so npm can execute it without Bun.
+uses Node.js for both the command surface and installed host runtime.
+
+It is the only supported operational interface. Runtime modules are bundled into the npm package;
+they are not standalone repository scripts. Root pnpm commands are limited to development,
+building, testing, and invoking `pnpm commandthing` before the package is published.
 
 ## Current invocation
 
@@ -44,6 +48,21 @@ pnpm commandthing uninstall
 Normal uninstall keeps config, logs, screenshots, and backups. `uninstall --purge` removes the
 entire `~/.commandthing` directory.
 
+## Device control
+
+```bash
+pnpm commandthing device info
+pnpm commandthing device reload
+pnpm commandthing device open /usage
+pnpm commandthing device screenshot
+```
+
+Device commands run the versioned controller installed by setup, ensuring the CLI and background
+services always use the same runtime version.
+
+Advanced maintainer operations are grouped under `commandthing diagnostics`; see
+[Development](development.md) for the available commands.
+
 ## Install only Claude hooks
 
 ```bash
@@ -82,7 +101,7 @@ forwarder. A settings backup is created before the change.
 pnpm commandthing doctor
 ```
 
-Doctor reports Node.js, Bun, adb, Claude settings, installed hooks, and feeder health. Missing `adb`
+Doctor reports Node.js, adb, Claude settings, installed hooks, and feeder health. Missing `adb`
 is expected when using browser preview without physical hardware.
 
 ## Manage configuration

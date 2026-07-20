@@ -19,7 +19,7 @@ Historical implementation plans live in [`archive/`](archive/) and are not curre
 
 CommandThing currently targets a macOS host because media control uses AppleScript and the
 development workflow has been validated there. The dashboard itself is ordinary web code, while
-the feeder and device tools use Bun.
+the feeder, CLI, and device tools use Node.js.
 
 The physical device must already run firmware that provides a kiosk/browser and ADB access. See
 [Device setup](device-setup.md) before changing firmware.

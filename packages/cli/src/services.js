@@ -122,11 +122,9 @@ function stopLabel(label) {
 }
 
 async function buildRuntimeFromCheckout() {
-  const builder = join(packageRoot, "..", "..", "scripts", "build-runtime.ts");
+  const builder = join(packageRoot, "build", "build-runtime.mjs");
   if (!(await exists(builder))) return;
-  const bun = executable("bun", [join(homedir(), ".bun", "bin", "bun")]);
-  if (!bun) throw new Error("Bun is required; install it from https://bun.sh and rerun setup");
-  runOrThrow(bun, ["run", builder], { stdio: "inherit" });
+  runOrThrow(process.execPath, [builder], { stdio: "inherit" });
 }
 
 export async function installRuntime(version) {
@@ -145,13 +143,31 @@ export async function installRuntime(version) {
   await cp(source, temporary, { recursive: true });
   await rm(destination, { recursive: true, force: true });
   await rename(temporary, destination);
+  await writeFile(join(runtimeRoot, "current.json"), `${JSON.stringify({ version: safeVersion })}\n`, "utf8");
   return destination;
+}
+
+async function currentRuntimePath() {
+  const { runtimeRoot } = locations();
+  const marker = join(runtimeRoot, "current.json");
+  if (!(await exists(marker))) throw new Error("runtime is not installed; run commandthing setup first");
+  const { version } = JSON.parse(await readFile(marker, "utf8"));
+  if (typeof version !== "string" || !/^[a-zA-Z0-9._-]+$/.test(version)) {
+    throw new Error(`invalid runtime marker: ${marker}`);
+  }
+  return join(runtimeRoot, version);
+}
+
+export async function runRuntimeTool(name, args) {
+  const runtimeDir = await currentRuntimePath();
+  const tool = join(runtimeDir, `${name}.js`);
+  if (!(await exists(tool))) throw new Error(`${name} is not included in the installed runtime`);
+  const result = spawnSync(process.execPath, [tool, ...args], { stdio: "inherit" });
+  if (result.status !== 0) process.exitCode = result.status ?? 1;
 }
 
 export async function installServices(version) {
   requireMacOS();
-  const bun = executable("bun", [join(homedir(), ".bun", "bin", "bun")]);
-  if (!bun) throw new Error("Bun is required; install it from https://bun.sh and rerun setup");
   const adb = executable("adb", [join(homedir(), "Library", "Android", "sdk", "platform-tools", "adb")]);
   const runtimeDir = await installRuntime(version);
   const { homeDir, logsDir } = locations();
@@ -159,13 +175,17 @@ export async function installServices(version) {
   await mkdir(launchAgentsDir, { recursive: true });
   await mkdir(logsDir, { recursive: true });
 
-  const pathParts = [dirname(bun), adb ? dirname(adb) : null, "/usr/local/bin", "/usr/bin", "/bin"].filter(
-    Boolean,
-  );
+  const pathParts = [
+    dirname(process.execPath),
+    adb ? dirname(adb) : null,
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+  ].filter(Boolean);
   const pathValue = [...new Set(pathParts)].join(":");
   const programs = {
-    "com.commandthing.feeder": [bun, join(runtimeDir, "feeder.js")],
-    "com.commandthing.tunnel": [bun, join(runtimeDir, "tunnel.js")],
+    "com.commandthing.feeder": [process.execPath, join(runtimeDir, "feeder.js")],
+    "com.commandthing.tunnel": [process.execPath, join(runtimeDir, "tunnel.js")],
   };
 
   for (const label of [...LABELS, ...LEGACY_LABELS]) stopLabel(label);

@@ -107,3 +107,22 @@ test("the default application home is ~/.commandthing", async () => {
     await rm(paths.root, { recursive: true, force: true });
   }
 });
+
+test("device commands are dispatched through the installed runtime", async () => {
+  const paths = await fixture();
+  try {
+    const runtimeRoot = join(paths.stateDir, "runtime");
+    const runtimeDir = join(runtimeRoot, "test-version");
+    await mkdir(runtimeDir, { recursive: true });
+    await writeFile(join(runtimeRoot, "current.json"), '{"version":"test-version"}\n');
+    await writeFile(
+      join(runtimeDir, "device.js"),
+      'console.log("runtime-device:" + process.argv.slice(2).join(","));\n',
+    );
+    const result = run(["device", "info"], paths);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /runtime-device:info/);
+  } finally {
+    await rm(paths.root, { recursive: true, force: true });
+  }
+});

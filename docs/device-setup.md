@@ -35,17 +35,8 @@ using unreliable USB-C/Thunderbolt adapters.
 
 ## Start CommandThing
 
-In one terminal:
-
 ```bash
-pnpm build
-pnpm feeder
-```
-
-In another terminal:
-
-```bash
-pnpm device:connect
+pnpm commandthing setup
 ```
 
 The watchdog waits for the device, recreates the reverse rule after reconnects, and reloads the
@@ -59,9 +50,9 @@ firmware. Consult that firmware's current documentation before modifying its ser
 ## Verify the device
 
 ```bash
-pnpm device:info
-pnpm device:open -- /usage
-pnpm device:shot
+pnpm commandthing device info
+pnpm commandthing device open /usage
+pnpm commandthing device screenshot
 ```
 
 Confirm an 800×480 viewport, the Chromium/QtWebEngine user agent, hardware input, usage scrolling,
@@ -69,10 +60,6 @@ and media control.
 
 ## Daily workflow
 
-```bash
-pnpm deploy
-```
-
-This rebuilds `apps/dashboard/dist` and hard-reloads the kiosk. The ADB reverse rule is not
-persistent across reboots or USB disconnects, so keep `pnpm device:connect` running or use the
-macOS agents described in [Development](development.md).
+Rerun `pnpm commandthing setup` after updating the checkout. It rebuilds and installs the runtime.
+The ADB reverse rule is not persistent across reboots or USB disconnects, so the installed tunnel
+service recreates it automatically.

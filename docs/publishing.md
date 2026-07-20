@@ -8,7 +8,8 @@ package from shipping without its runtime assets.
 - Choose and add an open-source license.
 - Replace personal Git commit email history if desired.
 - Confirm the `commandthing` npm and project names remain available.
-- Confirm the bundled feeder, tunnel, device controller, and dashboard are present in the tarball.
+- Confirm the bundled feeder, tunnel, device controller, diagnostics, and dashboard are present in
+  the tarball.
 - Add authentication or retain a prominent network warning for the feeder.
 - Test setup on a clean macOS account and at least one second Car Thing.
 - Add CI for pnpm install, checks, dashboard build, CLI tests, and package contents.
@@ -20,8 +21,8 @@ pnpm --filter commandthing pack:check
 ```
 
 The package `files` allowlist should include `bin/`, `src/`, `templates/`, `runtime/`, `README.md`,
-and npm-required metadata. The runtime must include `feeder.js`, `tunnel.js`, `device.js`, and the
-legacy dashboard build.
+and npm-required metadata. The runtime must include `feeder.js`, `tunnel.js`, `device.js`,
+`diagnostics.js`, and the legacy dashboard build.
 
 ## Versioning
 

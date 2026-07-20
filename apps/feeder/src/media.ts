@@ -8,16 +8,19 @@
  * the feeder is also where artwork + lyrics are fetched.
  */
 
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { LyricLine, MediaControl, NowPlaying } from "@commandthing/protocol";
+
+const execFileAsync = promisify(execFile);
 
 /** Run an AppleScript (one statement per arg). Returns trimmed stdout or null. */
 async function osa(...lines: string[]): Promise<string | null> {
   const args: string[] = [];
   for (const l of lines) args.push("-e", l);
   try {
-    const proc = Bun.spawn(["osascript", ...args], { stdout: "pipe", stderr: "pipe" });
-    const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-    return code === 0 ? out.trim() : null;
+    const { stdout } = await execFileAsync("osascript", args, { encoding: "utf8" });
+    return stdout.trim();
   } catch {
     return null;
   }
