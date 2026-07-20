@@ -136,17 +136,7 @@ export async function setupHooks({ feederUrl }) {
 }
 
 export async function initConfig({ quiet = false } = {}) {
-  const { configPath, homeDir, legacyHomeDir } = locations();
-  if (
-    !process.env.COMMANDTHING_HOME &&
-    !process.env.COMMANDTHING_CONFIG &&
-    !(await exists(homeDir)) &&
-    (await exists(legacyHomeDir))
-  ) {
-    await mkdir(dirname(homeDir), { recursive: true });
-    await rename(legacyHomeDir, homeDir);
-    if (!quiet) console.log(`CommandThing data migrated from ${legacyHomeDir} to ${homeDir}`);
-  }
+  const { configPath, homeDir } = locations();
   await mkdir(homeDir, { recursive: true });
   await mkdir(dirname(configPath), { recursive: true });
   if (!(await exists(configPath))) {

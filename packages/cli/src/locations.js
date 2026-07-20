@@ -5,7 +5,6 @@ export function locations() {
   const homeDir = process.env.COMMANDTHING_HOME || join(homedir(), ".commandthing");
   return {
     homeDir,
-    legacyHomeDir: join(homedir(), ".config", "commandthing"),
     configPath: process.env.COMMANDTHING_CONFIG || join(homeDir, "config.json"),
     forwarderPath: join(homeDir, "bin", "commandthing-hook.mjs"),
     backupsDir: join(homeDir, "backups"),

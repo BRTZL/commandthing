@@ -21,9 +21,6 @@ pnpm commandthing config path
 pnpm commandthing config show
 ```
 
-Setup automatically moves data from the short-lived `~/.config/commandthing` location when the new
-application home does not exist yet.
-
 After the npm release, replace `pnpm commandthing` with `npx commandthing@latest`.
 
 ## Config file
