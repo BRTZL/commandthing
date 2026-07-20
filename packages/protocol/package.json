@@ -1,0 +1,11 @@
+{
+  "name": "@commandthing/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Wire contracts shared by the CommandThing dashboard and feeder.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts"
+}

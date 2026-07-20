@@ -1,0 +1,78 @@
+# Device setup
+
+CommandThing can be fully previewed in a browser. Physical deployment additionally requires a Car
+Thing firmware image that provides a kiosk/browser and ADB access.
+
+Changing firmware can erase data. Back up the device and follow current instructions from the
+firmware/tool maintainers rather than relying on a version number copied into this repository.
+
+Useful upstream resources:
+
+- [Thing Labs](https://thinglabs.sh/)
+- [Car Thing community wiki](https://carthing.wiki/)
+- [Terbium flashing tool](https://terbium.app/)
+
+## Expected connection
+
+```text
+Car Thing http://localhost:4000
+        │
+        └── adb reverse tcp:4000 tcp:4000 ──> Mac feeder on port 4000
+```
+
+The same tunnel carries the UI, WebSocket, artwork, and API traffic.
+
+## Verify ADB
+
+Install Android platform tools, connect the device, and check:
+
+```bash
+adb devices
+```
+
+The device must appear with state `device`. If it is absent, replug it and prefer a USB 2 hub when
+using unreliable USB-C/Thunderbolt adapters.
+
+## Start CommandThing
+
+In one terminal:
+
+```bash
+pnpm build
+pnpm feeder
+```
+
+In another terminal:
+
+```bash
+pnpm device:connect
+```
+
+The watchdog waits for the device, recreates the reverse rule after reconnects, and reloads the
+kiosk after the feeder becomes healthy.
+
+## Configure the kiosk
+
+Point the device kiosk to `http://localhost:4000`. How the URL is configured depends on installed
+firmware. Consult that firmware's current documentation before modifying its service configuration.
+
+## Verify the device
+
+```bash
+pnpm device:info
+pnpm device:open -- /usage
+pnpm device:shot
+```
+
+Confirm an 800×480 viewport, the Chromium/QtWebEngine user agent, hardware input, usage scrolling,
+and media control.
+
+## Daily workflow
+
+```bash
+pnpm deploy
+```
+
+This rebuilds `apps/dashboard/dist` and hard-reloads the kiosk. The ADB reverse rule is not
+persistent across reboots or USB disconnects, so keep `pnpm device:connect` running or use the
+macOS agents described in [Development](development.md).

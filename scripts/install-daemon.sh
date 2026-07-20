@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install launchd LaunchAgents that auto-start the Car Thing stack at LOGIN and
 # keep it alive:
-#   com.carthing.feeder  - the Bun feeder on :4000 (serves dist + WS + media)
-#   com.carthing.tunnel  - the adb-reverse watchdog (device localhost:4000 -> Mac)
+#   com.commandthing.feeder  - the Bun feeder on :4000 (serves dist + WS + media)
+#   com.commandthing.tunnel  - adb-reverse watchdog (device localhost:4000 -> Mac)
 #
 # LaunchAgents (not LaunchDaemons) on purpose: the feeder drives Spotify via
 # AppleScript, which needs the user's GUI session. That means these start at
@@ -12,7 +12,7 @@
 # Generates the plists from your live paths (bun/adb/repo) so there's nothing
 # machine-specific committed. Re-run any time to refresh them.
 #
-# macOS only.  Usage: bun run daemon:install   (or: bash scripts/install-daemon.sh)
+# macOS only. Usage: pnpm daemon:install (or: bash scripts/install-daemon.sh)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -68,23 +68,23 @@ $env_extra  </dict>
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>$HOME/.carthing-$label.log</string>
+  <string>$HOME/.commandthing-$label.log</string>
   <key>StandardErrorPath</key>
-  <string>$HOME/.carthing-$label.log</string>
+  <string>$HOME/.commandthing-$label.log</string>
 </dict>
 </plist>
 PLIST
 }
 
-write_plist "com.carthing.feeder" \
+write_plist "com.commandthing.feeder" \
   "$BUN
 run
-$REPO/server/src/index.ts" \
+$REPO/apps/feeder/src/index.ts" \
   "    <key>HOST</key>
     <string>0.0.0.0</string>
 "
 
-write_plist "com.carthing.tunnel" \
+write_plist "com.commandthing.tunnel" \
   "$BUN
 run
 $REPO/scripts/connect.ts
@@ -102,13 +102,19 @@ reload_agent() { # $1=label — bootout if loaded, wait for teardown, then boots
   launchctl enable "$GUI/$label" 2>/dev/null || true
 }
 
-for label in com.carthing.feeder com.carthing.tunnel; do
+# Stop labels used before the CommandThing rename so they cannot fight for :4000.
+for legacy in com.carthing.feeder com.carthing.tunnel; do
+  launchctl bootout "$GUI/$legacy" 2>/dev/null || true
+  rm -f "$LA/$legacy.plist"
+done
+
+for label in com.commandthing.feeder com.commandthing.tunnel; do
   reload_agent "$label"
 done
 
 echo "✓ installed + started:"
-echo "    com.carthing.feeder  → feeder on :4000"
-echo "    com.carthing.tunnel  → adb reverse + kiosk auto-reload"
-echo "  logs: $HOME/.carthing-com.carthing.feeder.log"
-echo "        $HOME/.carthing-com.carthing.tunnel.log"
-echo "  manage: launchctl print $GUI/com.carthing.feeder   |   bun run daemon:uninstall"
+echo "    com.commandthing.feeder  → feeder on :4000"
+echo "    com.commandthing.tunnel  → adb reverse + kiosk auto-reload"
+echo "  logs: $HOME/.commandthing-com.commandthing.feeder.log"
+echo "        $HOME/.commandthing-com.commandthing.tunnel.log"
+echo "  manage: launchctl print $GUI/com.commandthing.feeder   |   pnpm daemon:uninstall"

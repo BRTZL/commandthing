@@ -94,7 +94,7 @@
   },
   "overrides": [
     {
-      "includes": ["dashboard/src/**/*.tsx", "!dashboard/src/components/ui/button.tsx"],
+      "includes": ["apps/dashboard/src/**/*.tsx", "!apps/dashboard/src/components/ui/button.tsx"],
       "linter": {
         "rules": {
           "correctness": {

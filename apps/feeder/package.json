@@ -1,0 +1,19 @@
+{
+  "name": "@commandthing/feeder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CommandThing host service for sessions, usage, media, and the device dashboard.",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@commandthing/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.3"
+  }
+}

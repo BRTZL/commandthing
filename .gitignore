@@ -20,17 +20,19 @@ Thumbs.db
 .idea/
 *.swp
 
-# Local env overrides (note: dashboard/.env is committed — non-secret dev config)
-.env.local
-.env.*.local
+# Environment files are local; commit only sanitized examples.
+.env
+.env.*
+!.env.example
 
 # Screenshots / scratch artifacts
-dashboard/*.png
+apps/dashboard/*.png
 device-shot.png
 *-shot.png
 
 # launchd daemon logs
 .carthing-*.log
+.commandthing-*.log
 
 # device crash dumps + diagnostic screenshots
 device-crashes*/

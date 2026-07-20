@@ -8,10 +8,10 @@
  * WebSocket.
  *
  * Usage:
- *   bun run scripts/device.ts reload            # hard-reload the kiosk (picks up a fresh `dist`)
- *   bun run scripts/device.ts shot [out.png]    # screenshot the screen (default: device-shot.png)
- *   bun run scripts/device.ts open <hash>       # navigate, e.g. `open /usage` or `open /session/<id>`
- *   bun run scripts/device.ts info              # print page url / UA / viewport
+ *   pnpm device:reload            # hard-reload the kiosk (picks up a fresh `dist`)
+ *   pnpm device:shot [out.png]    # screenshot the screen (default: device-shot.png)
+ *   pnpm device:open <hash>       # navigate, e.g. `open /usage` or `open /session/<id>`
+ *   pnpm device:info              # print page url / UA / viewport
  *
  * Env: CDP_PORT (2222) — the device-side remote-debugging port.
  *

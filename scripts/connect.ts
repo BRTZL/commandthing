@@ -14,14 +14,14 @@
  * permitted"). The bun runtime already has the access the feeder relies on, so
  * the watchdog rides along the same way.
  *
- * Usage: bun run scripts/connect.ts [port]   (default 4000)
+ * Usage: pnpm device:connect (default port 4000)
  */
 
 const PORT = Number(process.argv[2] ?? 4000);
 const REPO = new URL("..", import.meta.url).pathname; // trailing slash
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const log = (m: string) => console.log(`[carthing] ${new Date().toTimeString().slice(0, 8)} ${m}`);
+const log = (m: string) => console.log(`[commandthing] ${new Date().toTimeString().slice(0, 8)} ${m}`);
 
 /** Run a command, resolving to its exit code (output discarded). */
 function run(cmd: string[]): Promise<number> {

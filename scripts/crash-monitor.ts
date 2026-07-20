@@ -8,12 +8,12 @@
  * baseline (and later, a before/after for any fix).
  *
  * Usage: bun run scripts/crash-monitor.ts [minutes=120] [intervalSec=60]
- * Log:   .carthing-crashmon.log   (also echoed to stdout)
+ * Log:   .commandthing-crashmon.log (also echoed to stdout)
  */
 
 const minutes = Number(process.argv[2] ?? 120);
 const intervalSec = Number(process.argv[3] ?? 60);
-const LOG = `${new URL("..", import.meta.url).pathname}.carthing-crashmon.log`;
+const LOG = `${new URL("..", import.meta.url).pathname}.commandthing-crashmon.log`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const ts = () => new Date().toISOString().slice(11, 19);
@@ -27,7 +27,7 @@ async function sh(cmd: string): Promise<string> {
 async function append(line: string): Promise<void> {
   const f = Bun.file(LOG);
   const prev = (await f.exists()) ? await f.text() : "";
-  await Bun.write(LOG, prev + line + "\n");
+  await Bun.write(LOG, `${prev + line}\n`);
 }
 
 /** First PID whose ps line contains `match` (and not `exclude`). */
@@ -43,7 +43,10 @@ function pidFrom(ps: string, match: string, exclude?: string): string | null {
 /** start-time (proc field 22) + VmRSS kB for a pid, robust to spaces in comm. */
 async function procInfo(pid: string): Promise<{ start: string; rss: number }> {
   const stat = await sh(`cat /proc/${pid}/stat 2>/dev/null`);
-  const after = stat.slice(stat.lastIndexOf(")") + 2).trim().split(/\s+/);
+  const after = stat
+    .slice(stat.lastIndexOf(")") + 2)
+    .trim()
+    .split(/\s+/);
   const start = after[19] ?? "?";
   const status = await sh(`cat /proc/${pid}/status 2>/dev/null`);
   const m = /VmRSS:\s*(\d+)/.exec(status);

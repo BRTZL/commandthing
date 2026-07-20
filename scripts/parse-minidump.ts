@@ -50,7 +50,7 @@ function mdString(rva: number): string {
 }
 
 // --- SystemInfo (7) ---
-const ARCH: Record<number, string> = { 0: "x86", 5: "ARM", 9: "x86_64", 12: "ARM64", 0x8003: "ARM64" };
+const ARCH: Record<number, string> = { 0: "x86", 5: "ARM", 9: "x86_64", 12: "ARM64", 32771: "ARM64" };
 let arch = -1;
 const si = streams.get(7);
 if (si) arch = u16(si.rva);
@@ -71,7 +71,14 @@ const modOf = (a: number) => {
 };
 
 // --- Exception (6) ---
-const SIG: Record<number, string> = { 4: "SIGILL", 5: "SIGTRAP", 6: "SIGABRT", 7: "SIGBUS", 8: "SIGFPE", 11: "SIGSEGV" };
+const SIG: Record<number, string> = {
+  4: "SIGILL",
+  5: "SIGTRAP",
+  6: "SIGABRT",
+  7: "SIGBUS",
+  8: "SIGFPE",
+  11: "SIGSEGV",
+};
 const out: Record<string, unknown> = { file: path.split("/").pop(), arch: ARCH[arch] ?? arch };
 const ex = streams.get(6);
 if (ex) {
@@ -79,7 +86,7 @@ if (ex) {
   out.signal = `${u32(r + 8)} ${SIG[u32(r + 8)] ?? ""}`.trim();
   out.si_code = u32(r + 12);
   const faultAddr = u64(r + 24);
-  out.faultAddr = "0x" + faultAddr.toString(16);
+  out.faultAddr = `0x${faultAddr.toString(16)}`;
   out.faultIn = modOf(faultAddr);
   const ctxRva = u32(r + 164); // ThreadContext.Rva (after 152-byte MINIDUMP_EXCEPTION)
   if (ctxRva) {
@@ -87,19 +94,21 @@ if (ex) {
       // MDRawContextARM: flags u32, iregs[16] (r0..r15), pc=r15, lr=r14, sp=r13
       const pc = u32(ctxRva + 4 + 15 * 4);
       const lr = u32(ctxRva + 4 + 14 * 4);
-      out.pc = "0x" + pc.toString(16);
+      out.pc = `0x${pc.toString(16)}`;
       out.pcIn = modOf(pc);
       out.lrIn = modOf(lr);
     } else if (arch === 12 || arch === 0x8003) {
       // MDRawContextARM64: flags u64, cpsr u32, (pad), iregs[31] x0..x30, sp, pc
       const pc = u64(ctxRva + 16 + 31 * 8 + 8);
-      out.pc = "0x" + pc.toString(16);
+      out.pc = `0x${pc.toString(16)}`;
       out.pcIn = modOf(pc);
     }
   }
 }
 
 console.log(JSON.stringify(out, null, 2));
-const gfx = mods.filter((m) => /mali|gles|egl|libgl|gpu|drm|gbm|vulkan|skia/i.test(m.name)).map((m) => m.name);
+const gfx = mods
+  .filter((m) => /mali|gles|egl|libgl|gpu|drm|gbm|vulkan|skia/i.test(m.name))
+  .map((m) => m.name);
 console.log("graphics modules loaded:", gfx.length ? gfx : "(none in module list)");
 console.log("total modules:", mods.length);

@@ -1,0 +1,40 @@
+{
+  "name": "commandthing",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Set up and manage CommandThing for Spotify Car Thing devices.",
+  "bin": {
+    "commandthing": "./bin/commandthing.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/commandthing.js",
+    "check": "node --check bin/commandthing.js && node --check src/commands.js && node --check templates/commandthing-hook.mjs",
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BRTZL/commandthing.git"
+  },
+  "homepage": "https://github.com/BRTZL/commandthing#readme",
+  "bugs": "https://github.com/BRTZL/commandthing/issues",
+  "keywords": [
+    "car-thing",
+    "command-center",
+    "nocturne",
+    "spotify",
+    "dashboard"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
