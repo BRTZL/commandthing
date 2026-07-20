@@ -5,17 +5,9 @@ uses Node.js for both the command surface and installed host runtime.
 
 It is the only supported operational interface. Runtime modules are bundled into the npm package;
 they are not standalone repository scripts. Root pnpm commands are limited to development,
-building, testing, and invoking `pnpm commandthing` before the package is published.
+building, testing, and invoking the local CLI from a source checkout.
 
-## Current invocation
-
-The package is not on npm yet. From a source checkout, run:
-
-```bash
-pnpm commandthing --help
-```
-
-After the first npm release, the equivalent command will be:
+## Invocation
 
 ```bash
 npx commandthing@latest --help
@@ -27,7 +19,7 @@ fast and continue working offline.
 ## Set up CommandThing
 
 ```bash
-pnpm commandthing setup
+npx commandthing@latest setup
 ```
 
 Setup installs the versioned runtime under `~/.commandthing/runtime`, installs Claude hooks, creates
@@ -37,12 +29,12 @@ an update or repair. Pass `--skip-hooks` when Claude integration is not wanted.
 After setup, manage the installation with:
 
 ```bash
-pnpm commandthing status
-pnpm commandthing logs
-pnpm commandthing start
-pnpm commandthing stop
-pnpm commandthing restart
-pnpm commandthing uninstall
+npx commandthing@latest status
+npx commandthing@latest logs
+npx commandthing@latest start
+npx commandthing@latest stop
+npx commandthing@latest restart
+npx commandthing@latest uninstall
 ```
 
 Normal uninstall keeps config, logs, screenshots, and backups. `uninstall --purge` removes the
@@ -51,10 +43,10 @@ entire `~/.commandthing` directory.
 ## Device control
 
 ```bash
-pnpm commandthing device info
-pnpm commandthing device reload
-pnpm commandthing device open /usage
-pnpm commandthing device screenshot
+npx commandthing@latest device info
+npx commandthing@latest device reload
+npx commandthing@latest device open /usage
+npx commandthing@latest device screenshot
 ```
 
 Device commands run the versioned controller installed by setup, ensuring the CLI and background
@@ -66,14 +58,14 @@ Advanced maintainer operations are grouped under `commandthing diagnostics`; see
 ## Install only Claude hooks
 
 ```bash
-pnpm commandthing setup hooks
+npx commandthing@latest setup hooks
 ```
 
 Hook setup reads the feeder port from `~/.commandthing/config.json`. Use an explicit remote
 address only when necessary:
 
 ```bash
-pnpm commandthing setup hooks --feeder-url http://localhost:4000
+npx commandthing@latest setup hooks --feeder-url http://localhost:4000
 ```
 
 Setup performs the following operations:
@@ -89,7 +81,7 @@ Unrelated Claude settings and hooks are preserved.
 ## Remove Claude hooks
 
 ```bash
-pnpm commandthing remove hooks
+npx commandthing@latest remove hooks
 ```
 
 This removes only hook commands recognized as CommandThing hooks and deletes the generated
@@ -98,7 +90,7 @@ forwarder. A settings backup is created before the change.
 ## Diagnose the host
 
 ```bash
-pnpm commandthing doctor
+npx commandthing@latest doctor
 ```
 
 Doctor reports Node.js, adb, Claude settings, installed hooks, and feeder health. Missing `adb`
@@ -107,9 +99,9 @@ is expected when using browser preview without physical hardware.
 ## Manage configuration
 
 ```bash
-pnpm commandthing config init
-pnpm commandthing config path
-pnpm commandthing config show
+npx commandthing@latest config init
+npx commandthing@latest config path
+npx commandthing@latest config show
 ```
 
 See [Configuration](configuration.md) for the schema and generated-file locations.
@@ -118,7 +110,7 @@ See [Configuration](configuration.md) for the schema and generated-file location
 
 ```bash
 printf '%s' '{"session_id":"test","hook_event_name":"SessionStart"}' \
-  | pnpm commandthing hook
+  | npx commandthing@latest hook
 ```
 
 The hook command intentionally exits successfully when the feeder is stopped so it can never block

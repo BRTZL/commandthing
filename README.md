@@ -15,23 +15,12 @@ music controls, and focus tools.
 - A legacy-only production build for the Car Thing's Chromium 69-era browser
 - One WebSocket connection between the host service and dashboard
 
-## Project status
+## Quick start
 
-Source installation and device deployment work today. The `commandthing` CLI is included and can
-configure Claude hooks without repository-specific paths.
-
-The npm package has **not been published yet**. Until the first release, use `pnpm commandthing`
-inside a clone instead of `npx commandthing@latest`.
-
-## Quick start from source
-
-Requirements: macOS, Node.js 18 or newer, and pnpm. ADB is optional until connecting hardware.
+Requirements: macOS and Node.js 18 or newer. ADB is optional until connecting hardware.
 
 ```bash
-git clone https://github.com/BRTZL/commandthing.git
-cd commandthing
-pnpm install
-pnpm commandthing setup
+npx commandthing@latest setup
 ```
 
 Open <http://localhost:4000>. The Usage page also expects the optional Open Usage service at
@@ -44,7 +33,7 @@ Setup builds and installs the self-contained runtime, configures Claude Code hoo
 background services. Check it at any time with:
 
 ```bash
-pnpm commandthing status
+npx commandthing@latest status
 ```
 
 ## Monorepo
@@ -59,7 +48,7 @@ packages/
 docs/              Installation, architecture, development, and release guides
 ```
 
-pnpm manages the workspace and dependencies. The published CLI bundles the host runtime, device
+pnpm manages the workspace and dependencies. The CLI package bundles the host runtime, device
 controller, and diagnostics so installed users need only Node.js.
 
 ## Documentation

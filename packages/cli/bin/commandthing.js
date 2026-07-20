@@ -60,7 +60,7 @@ Usage:
   commandthing --version                      Print the CLI version
   commandthing --help                         Show this help
 
-Until the npm package is published, contributors can run the same commands with:
+From a source checkout, contributors can run:
   pnpm commandthing <command>`);
 }
 

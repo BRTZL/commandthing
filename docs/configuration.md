@@ -16,12 +16,10 @@ location is `~/.commandthing`:
 No `.env` file is required. Create the config with:
 
 ```bash
-pnpm commandthing config init
-pnpm commandthing config path
-pnpm commandthing config show
+npx commandthing@latest config init
+npx commandthing@latest config path
+npx commandthing@latest config show
 ```
-
-After the npm release, replace `pnpm commandthing` with `npx commandthing@latest`.
 
 ## Config file
 

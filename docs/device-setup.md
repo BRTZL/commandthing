@@ -36,7 +36,7 @@ using unreliable USB-C/Thunderbolt adapters.
 ## Start CommandThing
 
 ```bash
-pnpm commandthing setup
+npx commandthing@latest setup
 ```
 
 The watchdog waits for the device, recreates the reverse rule after reconnects, and reloads the
@@ -50,9 +50,9 @@ firmware. Consult that firmware's current documentation before modifying its ser
 ## Verify the device
 
 ```bash
-pnpm commandthing device info
-pnpm commandthing device open /usage
-pnpm commandthing device screenshot
+npx commandthing@latest device info
+npx commandthing@latest device open /usage
+npx commandthing@latest device screenshot
 ```
 
 Confirm an 800×480 viewport, the Chromium/QtWebEngine user agent, hardware input, usage scrolling,
@@ -60,6 +60,6 @@ and media control.
 
 ## Daily workflow
 
-Rerun `pnpm commandthing setup` after updating the checkout. It rebuilds and installs the runtime.
+Rerun `npx commandthing@latest setup` to update or repair the installed runtime.
 The ADB reverse rule is not persistent across reboots or USB disconnects, so the installed tunnel
 service recreates it automatically.

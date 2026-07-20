@@ -35,8 +35,8 @@ Then reload <http://localhost:4000>.
 The launchd agent may already own it:
 
 ```bash
-pnpm commandthing stop
-pnpm feeder
+npx commandthing@latest stop
+npx commandthing@latest start
 ```
 
 ## Device is absent from adb
@@ -47,8 +47,8 @@ device or adb server restarts.
 ## Kiosk does not recover after feeder restart
 
 ```bash
-pnpm commandthing restart
-pnpm commandthing device reload
+npx commandthing@latest restart
+npx commandthing@latest device reload
 ```
 
 The first command recreates the tunnel; the second forces the kiosk off its connection-error page.
@@ -61,8 +61,8 @@ renderer and different font metrics. Review the Chromium rules in [Development](
 ## Claude sessions never show authoritative state
 
 ```bash
-pnpm commandthing setup hooks
-pnpm commandthing doctor
+npx commandthing@latest setup hooks
+npx commandthing@latest doctor
 ```
 
 Rerunning setup is safe and removes duplicate CommandThing entries.

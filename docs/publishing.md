@@ -1,9 +1,9 @@
 # Publishing and releases
 
-CommandThing is not published to npm yet. This checklist keeps documentation honest and prevents a
-package from shipping without its runtime assets.
+This checklist keeps releases reproducible and prevents a package from shipping without its runtime
+assets.
 
-## Before the first public release
+## Release readiness
 
 - Choose and add an open-source license.
 - Replace personal Git commit email history if desired.
@@ -37,14 +37,6 @@ Publishing changes external state and must be done explicitly after reviewing th
 ```bash
 pnpm --filter commandthing publish --access public
 ```
-
-After publishing, update the root README and CLI guide to make this the primary setup command:
-
-```bash
-npx commandthing@latest setup
-```
-
-Do not advertise that command before a real npm release exists.
 
 ## GitHub release
 

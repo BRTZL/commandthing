@@ -1,49 +1,26 @@
 # Getting started
 
-This guide runs CommandThing from source on a Mac. You can preview the entire dashboard before
-connecting a Car Thing.
+This guide installs CommandThing on a Mac. You can preview the entire dashboard before connecting a
+Car Thing.
 
 ## Requirements
 
 - macOS
 - Node.js 18 or newer
-- pnpm 10 (the repository pins the expected version in `package.json`)
 - Optional: Android platform tools (`adb`) for a physical device
 - Optional: Open Usage on port `6736` for provider usage data
-
-If pnpm is unavailable, enable the package-manager shim included with Node:
-
-```bash
-corepack enable
-corepack install
-```
 
 ## Install
 
 ```bash
-git clone https://github.com/BRTZL/commandthing.git
-cd commandthing
-pnpm install
-```
-
-For a normal installation, run the idempotent setup command:
-
-```bash
-pnpm commandthing setup
+npx commandthing@latest setup
 ```
 
 It creates `~/.commandthing`, installs the packaged runtime and Claude hooks, starts the macOS
 services, and waits for the dashboard to become healthy. CommandThing does not require a project
 `.env` file. See [Configuration](configuration.md) for ports, Open Usage, logs, and other local data.
 
-## Production preview
-
-Build the exact legacy bundle used by the device, then start the feeder:
-
-```bash
-pnpm build
-pnpm feeder
-```
+## Browser preview
 
 Open <http://localhost:4000>. Useful endpoints include:
 
@@ -52,11 +29,14 @@ Open <http://localhost:4000>. Useful endpoints include:
 - `/api/usage` — cached Open Usage response
 - `/ws` — dashboard event and request transport
 
-## Live development
+## Development from source
 
-Run both services with one command:
+Clone the repository and run the development services with pnpm:
 
 ```bash
+git clone https://github.com/BRTZL/commandthing.git
+cd commandthing
+pnpm install
 pnpm dev
 ```
 
@@ -68,7 +48,7 @@ Open <http://localhost:5173>. Vite serves the UI with hot reload while the feede
 Install CommandThing's hooks safely:
 
 ```bash
-pnpm commandthing setup hooks
+npx commandthing@latest setup hooks
 ```
 
 The CLI creates a small stable forwarder under `~/.commandthing`, backs up Claude settings,
@@ -77,5 +57,5 @@ and merges its entries with existing hooks. See [CLI](cli.md) for removal and di
 ## Next steps
 
 - Connect hardware using [Device setup](device-setup.md).
-- Learn the development scripts in [Development](development.md).
+- Learn the contributor workflow in [Development](development.md).
 - Check [Troubleshooting](troubleshooting.md) if usage or the feeder is unavailable.
