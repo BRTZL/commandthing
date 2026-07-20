@@ -3,22 +3,25 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Set up and manage CommandThing for Spotify Car Thing devices.",
+  "license": "MIT",
   "bin": {
     "commandthing": "./bin/commandthing.js"
   },
   "files": [
     "bin",
     "src/*.js",
+    "src/*.d.ts",
     "templates",
     "runtime",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "scripts": {
     "start": "node bin/commandthing.js",
-    "check": "node --check bin/commandthing.js && node --check src/commands.js && node --check src/locations.js && node --check src/services.js && node --check templates/commandthing-hook.mjs",
+    "check": "node --check bin/commandthing.js && node --check src/commands.js && node --check src/config.js && node --check src/locations.js && node --check src/services.js && node --check templates/commandthing-hook.mjs && node --check templates/service-runner.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test",
     "prepack": "node build/build-runtime.mjs",

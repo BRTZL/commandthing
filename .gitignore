@@ -32,7 +32,6 @@ device-shot.png
 *-shot.png
 
 # launchd daemon logs
-.carthing-*.log
 .commandthing-*.log
 
 # device crash dumps + diagnostic screenshots

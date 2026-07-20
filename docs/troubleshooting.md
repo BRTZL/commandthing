@@ -10,7 +10,7 @@ curl http://localhost:4000/api/usage
 ```
 
 Change `openUsage.url` in `~/.commandthing/config.json` when the service uses another
-address, then restart the feeder. `OPEN_USAGE_URL` remains a legacy process-level override.
+address, then restart the feeder.
 
 ## Reset countdown shows thousands of days
 
@@ -35,8 +35,8 @@ Then reload <http://localhost:4000>.
 The launchd agent may already own it:
 
 ```bash
-npx commandthing@latest stop
-npx commandthing@latest start
+~/.commandthing/bin/commandthing stop
+~/.commandthing/bin/commandthing start
 ```
 
 ## Device is absent from adb
@@ -47,8 +47,8 @@ device or adb server restarts.
 ## Kiosk does not recover after feeder restart
 
 ```bash
-npx commandthing@latest restart
-npx commandthing@latest device reload
+~/.commandthing/bin/commandthing restart
+~/.commandthing/bin/commandthing device reload
 ```
 
 The first command recreates the tunnel; the second forces the kiosk off its connection-error page.
@@ -62,7 +62,7 @@ renderer and different font metrics. Review the Chromium rules in [Development](
 
 ```bash
 npx commandthing@latest setup hooks
-npx commandthing@latest doctor
+~/.commandthing/bin/commandthing doctor
 ```
 
 Rerunning setup is safe and removes duplicate CommandThing entries.

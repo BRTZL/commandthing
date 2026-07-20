@@ -28,13 +28,33 @@ const packagePath = fileURLToPath(new URL("../package.json", import.meta.url));
 const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
 const args = process.argv.slice(2);
 
-function option(name, fallback) {
-  const index = args.indexOf(name);
-  return index >= 0 && args[index + 1] ? args[index + 1] : fallback;
+function parseOptions(tokens, schema) {
+  const options = {};
+  const positionals = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (!token.startsWith("--")) {
+      positionals.push(token);
+      continue;
+    }
+    const [name, inlineValue] = token.split(/=(.*)/s, 2);
+    const kind = schema[name];
+    if (!kind) throw new Error(`unknown option: ${name}`);
+    if (kind === "boolean") {
+      if (inlineValue != null) throw new Error(`${name} does not accept a value`);
+      options[name] = true;
+      continue;
+    }
+    const value = inlineValue ?? tokens[index + 1];
+    if (!value || value.startsWith("--")) throw new Error(`${name} requires a value`);
+    options[name] = value;
+    if (inlineValue == null) index += 1;
+  }
+  return { options, positionals };
 }
 
-function flag(name) {
-  return args.includes(name);
+function requireNoArguments(command, tokens) {
+  if (tokens.length > 0) throw new Error(`${command} does not accept arguments: ${tokens.join(" ")}`);
 }
 
 function help() {
@@ -65,88 +85,123 @@ From a source checkout, contributors can run:
 }
 
 async function main() {
-  const [command, rawTarget] = args;
-  const target = rawTarget?.startsWith("--") ? undefined : rawTarget;
+  const [command, ...rest] = args;
   if (!command || command === "--help" || command === "-h" || command === "help") {
+    requireNoArguments(command || "help", rest);
     help();
     return;
   }
   if (command === "--version" || command === "-v" || command === "version") {
+    requireNoArguments(command, rest);
     console.log(packageJson.version);
     return;
   }
-  if (command === "setup" && target === "hooks") {
-    await setupHooks({ feederUrl: option("--feeder-url") });
-    return;
-  }
-  if (command === "setup" && !target) {
+  if (command === "setup") {
+    const hooksOnly = rest[0] === "hooks";
+    const parsed = parseOptions(hooksOnly ? rest.slice(1) : rest, {
+      "--feeder-url": "value",
+      ...(hooksOnly ? {} : { "--skip-hooks": "boolean" }),
+    });
+    if (parsed.positionals.length > 0) {
+      throw new Error(`unknown setup target: ${parsed.positionals.join(" ")}`);
+    }
+    if (hooksOnly) {
+      await setupHooks({ feederUrl: parsed.options["--feeder-url"] });
+      return;
+    }
     await initConfig({ quiet: true });
-    const runtimeDir = await installServices(packageJson.version);
-    if (!flag("--skip-hooks")) await setupHooks({ feederUrl: option("--feeder-url") });
-    const feederUrl = await waitForHealthyFeeder();
-    console.log(`CommandThing ${packageJson.version} is ready`);
-    console.log(`Runtime: ${runtimeDir}`);
-    console.log(`Dashboard: ${feederUrl}`);
+    const installation = await installServices(packageJson.version);
+    let hookInstallation;
+    try {
+      if (!parsed.options["--skip-hooks"]) {
+        hookInstallation = await setupHooks({ feederUrl: parsed.options["--feeder-url"] });
+      }
+      const feederUrl = await waitForHealthyFeeder();
+      await installation.commit();
+      console.log(`CommandThing ${packageJson.version} is ready`);
+      console.log(`Runtime: ${installation.runtimeDir}`);
+      console.log(`Dashboard: ${feederUrl}`);
+    } catch (error) {
+      await hookInstallation?.rollback();
+      await installation.rollback();
+      throw error;
+    }
     return;
   }
-  if (command === "remove" && target === "hooks") {
+  if (command === "remove" && rest[0] === "hooks") {
+    requireNoArguments("remove hooks", rest.slice(1));
     await removeHooks();
     return;
   }
-  if (command === "config" && target === "init") {
+  if (command === "config" && rest[0] === "init") {
+    requireNoArguments("config init", rest.slice(1));
     await initConfig();
     return;
   }
-  if (command === "config" && target === "show") {
+  if (command === "config" && rest[0] === "show") {
+    requireNoArguments("config show", rest.slice(1));
     await showConfig();
     return;
   }
-  if (command === "config" && target === "path") {
+  if (command === "config" && rest[0] === "path") {
+    requireNoArguments("config path", rest.slice(1));
     printConfigPath();
     return;
   }
   if (command === "start") {
+    requireNoArguments(command, rest);
     startServices();
     await waitForHealthyFeeder();
     return;
   }
   if (command === "stop") {
+    requireNoArguments(command, rest);
     stopServices();
     return;
   }
   if (command === "restart") {
+    requireNoArguments(command, rest);
     restartServices();
     await waitForHealthyFeeder();
     return;
   }
   if (command === "status") {
+    requireNoArguments(command, rest);
     await statusServices();
     return;
   }
   if (command === "logs") {
+    requireNoArguments(command, rest);
     await followLogs();
     return;
   }
   if (command === "device") {
-    await runRuntimeTool("device", args.slice(1));
+    if (rest.length === 0) throw new Error("device requires a command");
+    await runRuntimeTool("device", rest);
     return;
   }
   if (command === "diagnostics") {
-    await runRuntimeTool("diagnostics", args.slice(1));
+    if (rest.length === 0) throw new Error("diagnostics requires a command");
+    await runRuntimeTool("diagnostics", rest);
     return;
   }
   if (command === "uninstall") {
+    const parsed = parseOptions(rest, { "--purge": "boolean" });
+    if (parsed.positionals.length > 0)
+      throw new Error(`unknown uninstall argument: ${parsed.positionals.join(" ")}`);
     await uninstallServices();
     await removeHooks();
-    if (flag("--purge")) await purgeHome();
+    if (parsed.options["--purge"]) await purgeHome();
     else console.log("Config, logs, screenshots, and backups were kept; use --purge to remove them");
     return;
   }
   if (command === "hook") {
+    requireNoArguments(command, rest);
     await forwardHook();
     return;
   }
   if (command === "doctor") {
+    requireNoArguments(command, rest);
     await doctor();
     return;
   }

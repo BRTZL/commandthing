@@ -1,7 +1,18 @@
 import { spawnSync } from "node:child_process";
-import { access, chmod, copyFile, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readConfigFileSync, serializeDefaultConfig } from "./config.js";
 import { locations } from "./locations.js";
 
 const HOOK_EVENTS = [
@@ -13,12 +24,6 @@ const HOOK_EVENTS = [
   "SessionStart",
   "SessionEnd",
 ];
-
-const DEFAULT_CONFIG = {
-  server: { host: "0.0.0.0", port: 4000 },
-  openUsage: { url: "http://localhost:6736/v1/usage", refreshMs: 30_000 },
-  refresh: { sessionsMs: 2000, mediaMs: 1000 },
-};
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -65,33 +70,41 @@ async function readSettings(settingsPath) {
 async function readUserConfig() {
   const { configPath } = locations();
   if (!(await exists(configPath))) await initConfig({ quiet: true });
-  try {
-    return JSON.parse(await readFile(configPath, "utf8"));
-  } catch (error) {
-    throw new Error(`cannot parse ${configPath}; fix its JSON before continuing (${error.message})`);
-  }
+  return readConfigFileSync(configPath);
 }
 
 async function configuredFeederUrl() {
   const userConfig = await readUserConfig();
-  const port = Number(userConfig?.server?.port ?? DEFAULT_CONFIG.server.port);
-  if (!Number.isInteger(port) || port <= 0) {
-    throw new Error("server.port in the CommandThing config must be a positive integer");
-  }
+  const port = userConfig.server.port;
   return `http://localhost:${port}`;
 }
 
 async function writeSettings(settingsPath, settings, homeDir) {
   await mkdir(dirname(settingsPath), { recursive: true });
+  const output = `${JSON.stringify(settings, null, 2)}\n`;
+  await pruneSettingsBackups(homeDir);
+  if ((await exists(settingsPath)) && (await readFile(settingsPath, "utf8")) === output) return false;
   if (await exists(settingsPath)) {
     const backupDir = join(homeDir, "backups");
     await mkdir(backupDir, { recursive: true });
     const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
     await copyFile(settingsPath, join(backupDir, `claude-settings-${stamp}.json`));
+    await pruneSettingsBackups(homeDir);
   }
   const temporaryPath = `${settingsPath}.commandthing.tmp`;
-  await writeFile(temporaryPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
+  await writeFile(temporaryPath, output, "utf8");
   await rename(temporaryPath, settingsPath);
+  return true;
+}
+
+async function pruneSettingsBackups(homeDir) {
+  const backupDir = join(homeDir, "backups");
+  if (!(await exists(backupDir))) return;
+  const backups = (await readdir(backupDir))
+    .filter((name) => /^claude-settings-.*\.json$/.test(name))
+    .sort()
+    .reverse();
+  await Promise.all(backups.slice(5).map((name) => unlink(join(backupDir, name)).catch(() => {})));
 }
 
 function validateFeederUrl(value) {
@@ -113,14 +126,8 @@ export async function setupHooks({ feederUrl }) {
   const normalizedUrl = validateFeederUrl(feederUrl || (await configuredFeederUrl()));
   const templatePath = join(packageRoot, "templates", "commandthing-hook.mjs");
   const template = await readFile(templatePath, "utf8");
-
-  await mkdir(dirname(forwarderPath), { recursive: true });
-  await writeFile(
-    forwarderPath,
-    template.replace("__COMMANDTHING_FEEDER_URL__", JSON.stringify(normalizedUrl)),
-    "utf8",
-  );
-  await chmod(forwarderPath, 0o755);
+  const originalSettings = (await exists(settingsPath)) ? await readFile(settingsPath, "utf8") : null;
+  const originalForwarder = (await exists(forwarderPath)) ? await readFile(forwarderPath, "utf8") : null;
 
   const settings = await readSettings(settingsPath);
   const hooks = settings.hooks && typeof settings.hooks === "object" ? { ...settings.hooks } : {};
@@ -128,11 +135,37 @@ export async function setupHooks({ feederUrl }) {
   for (const event of HOOK_EVENTS) {
     hooks[event] = [...withoutCommandThingHooks(hooks[event]), { hooks: [{ type: "command", command }] }];
   }
-  await writeSettings(settingsPath, { ...settings, hooks }, homeDir);
+  const nextSettings = { ...settings, hooks };
+  const forwarder = template.replace("__COMMANDTHING_FEEDER_URL__", JSON.stringify(normalizedUrl));
+  await mkdir(dirname(forwarderPath), { recursive: true });
+  const temporaryForwarder = `${forwarderPath}.tmp`;
+  await writeFile(temporaryForwarder, forwarder, "utf8");
+  await chmod(temporaryForwarder, 0o755);
+  const rollback = async () => {
+    if (originalSettings == null) await unlink(settingsPath).catch(() => {});
+    else await writeAtomicText(settingsPath, originalSettings, 0o644);
+    if (originalForwarder == null) await unlink(forwarderPath).catch(() => {});
+    else await writeAtomicText(forwarderPath, originalForwarder, 0o755);
+  };
+  try {
+    await writeSettings(settingsPath, nextSettings, homeDir);
+    await rename(temporaryForwarder, forwarderPath);
+  } catch (error) {
+    await rollback();
+    throw error;
+  }
 
   console.log(`CommandThing hooks installed in ${settingsPath}`);
   console.log(`Hook forwarder: ${forwarderPath}`);
   console.log(`Feeder URL: ${normalizedUrl}`);
+  return { rollback };
+}
+
+async function writeAtomicText(path, contents, mode) {
+  const temporary = `${path}.tmp`;
+  await writeFile(temporary, contents, "utf8");
+  await chmod(temporary, mode);
+  await rename(temporary, path);
 }
 
 export async function initConfig({ quiet = false } = {}) {
@@ -140,7 +173,7 @@ export async function initConfig({ quiet = false } = {}) {
   await mkdir(homeDir, { recursive: true });
   await mkdir(dirname(configPath), { recursive: true });
   if (!(await exists(configPath))) {
-    await writeFile(configPath, `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`, "utf8");
+    await writeFile(configPath, serializeDefaultConfig(), "utf8");
     if (!quiet) console.log(`CommandThing config created at ${configPath}`);
   } else if (!quiet) {
     console.log(`CommandThing config already exists at ${configPath}`);
@@ -150,6 +183,7 @@ export async function initConfig({ quiet = false } = {}) {
 export async function showConfig() {
   const { configPath } = locations();
   if (!(await exists(configPath))) await initConfig({ quiet: true });
+  readConfigFileSync(configPath);
   console.log(await readFile(configPath, "utf8"));
 }
 
@@ -178,9 +212,7 @@ export async function removeHooks() {
 export async function forwardHook() {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
-  const feederUrl = validateFeederUrl(
-    process.env.COMMANDTHING_FEEDER_URL || process.env.CARTHING_FEEDER || (await configuredFeederUrl()),
-  );
+  const feederUrl = validateFeederUrl(process.env.COMMANDTHING_FEEDER_URL || (await configuredFeederUrl()));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 900);
   try {
@@ -203,13 +235,24 @@ function commandVersion(command, args = ["--version"]) {
 }
 
 export async function doctor() {
-  const { configPath, forwarderPath, settingsPath } = locations();
+  const { configPath, forwarderPath, nodeLauncherPath, serviceRunnerPath, settingsPath } = locations();
+  const nodeSupported = Number(process.versions.node.split(".")[0]) >= 22;
+  let configValid = false;
+  let configDetail = configPath;
+  try {
+    readConfigFileSync(configPath);
+    configValid = await exists(configPath);
+  } catch (error) {
+    configDetail = error instanceof Error ? error.message : String(error);
+  }
   const checks = [
-    ["Node.js", process.version, true],
+    ["Node.js 22+", process.version, nodeSupported],
     ["adb", commandVersion("adb", ["version"]), Boolean(commandVersion("adb", ["version"]))],
     ["Claude settings", settingsPath, await exists(settingsPath)],
-    ["CommandThing config", configPath, await exists(configPath)],
+    ["CommandThing config", configDetail, configValid],
     ["CommandThing hooks", forwarderPath, await exists(forwarderPath)],
+    ["Node launcher", nodeLauncherPath, await exists(nodeLauncherPath)],
+    ["Service runner", serviceRunnerPath, await exists(serviceRunnerPath)],
   ];
   const feederUrl = await configuredFeederUrl();
   try {

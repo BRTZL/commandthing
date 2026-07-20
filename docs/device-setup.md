@@ -50,9 +50,9 @@ firmware. Consult that firmware's current documentation before modifying its ser
 ## Verify the device
 
 ```bash
-npx commandthing@latest device info
-npx commandthing@latest device open /usage
-npx commandthing@latest device screenshot
+~/.commandthing/bin/commandthing device info
+~/.commandthing/bin/commandthing device open /usage
+~/.commandthing/bin/commandthing device screenshot
 ```
 
 Confirm an 800×480 viewport, the Chromium/QtWebEngine user agent, hardware input, usage scrolling,

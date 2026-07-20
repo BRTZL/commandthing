@@ -17,7 +17,7 @@ music controls, and focus tools.
 
 ## Quick start
 
-Requirements: macOS and Node.js 18 or newer. ADB is optional until connecting hardware.
+Requirements: macOS and Node.js 22 or newer. ADB is optional until connecting hardware.
 
 ```bash
 npx commandthing@latest setup
@@ -29,11 +29,11 @@ Open <http://localhost:4000>. The Usage page also expects the optional Open Usag
 Machine settings, runtime files, logs, backups, and screenshots live under `~/.commandthing`; project
 `.env` files are not needed.
 
-Setup builds and installs the self-contained runtime, configures Claude Code hooks, and starts the
-background services. Check it at any time with:
+Setup installs the self-contained runtime and an offline management CLI, configures Claude Code
+hooks, and starts the background services. Check it at any time with:
 
 ```bash
-npx commandthing@latest status
+~/.commandthing/bin/commandthing status
 ```
 
 ## Monorepo
@@ -65,8 +65,9 @@ controller, and diagnostics so installed users need only Node.js.
 
 ## Important security note
 
-The feeder exposes session, usage, hook, and media endpoints without authentication. It is intended
-for localhost and a trusted USB/ADB connection. Do not expose port `4000` to an untrusted network.
+The feeder binds to `127.0.0.1` by default because its session, usage, hook, and media endpoints do
+not use application-level authentication. The device reaches that loopback service through USB/ADB.
+Treat LAN binding as an explicit advanced configuration; see [Security](SECURITY.md).
 
 ## Naming
 

@@ -6,7 +6,7 @@ Car Thing.
 ## Requirements
 
 - macOS
-- Node.js 18 or newer
+- Node.js 22 or newer
 - Optional: Android platform tools (`adb`) for a physical device
 - Optional: Open Usage on port `6736` for provider usage data
 
@@ -19,6 +19,10 @@ npx commandthing@latest setup
 It creates `~/.commandthing`, installs the packaged runtime and Claude hooks, starts the macOS
 services, and waits for the dashboard to become healthy. CommandThing does not require a project
 `.env` file. See [Configuration](configuration.md) for ports, Open Usage, logs, and other local data.
+
+Setup also installs `~/.commandthing/bin/commandthing` for offline day-to-day management. Use
+`npx commandthing@latest setup` again when installing an update; use the local command for status,
+logs, restart, device control, and diagnostics.
 
 ## Browser preview
 
@@ -48,7 +52,7 @@ Open <http://localhost:5173>. Vite serves the UI with hot reload while the feede
 Install CommandThing's hooks safely:
 
 ```bash
-npx commandthing@latest setup hooks
+~/.commandthing/bin/commandthing setup hooks
 ```
 
 The CLI creates a small stable forwarder under `~/.commandthing`, backs up Claude settings,

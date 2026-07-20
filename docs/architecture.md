@@ -33,7 +33,8 @@ protocol, preventing accidental resolution to a registry package during developm
 
 The npm distribution entry point. It packages the feeder, tunnel, device controller, and legacy
 dashboard; installs them into a versioned application runtime; and manages hooks, launchd, logs,
-and diagnostics. The CLI uses Node.js APIs so `npx commandthing` works on a standard Node install.
+and diagnostics. The CLI owns the shared machine-configuration schema consumed by the bundled
+feeder, preventing installer/runtime default drift.
 
 Runtime TypeScript and build entries live inside this package because they exist solely to produce
 and operate the CLI distribution. There is deliberately no top-level `scripts/` directory and no
@@ -74,6 +75,13 @@ The feeder and tunnel read the configured server port. See [Configuration](confi
 
 ## Security model
 
-The feeder assumes a trusted local machine and USB connection. Port `4000` has no authentication
-and can expose session titles, prompts, usage, and media state. Do not forward it to the public
-internet or an untrusted LAN.
+The feeder assumes a trusted local machine and USB connection. Port `4000` has no application-level
+authentication and can expose session titles, prompts, usage, and media state, so it binds to
+`127.0.0.1` by default. The ADB reverse tunnel reaches that loopback listener. LAN binding is an
+explicit opt-in and must not be used on an untrusted network.
+
+Service upgrades are staged. The CLI validates config and launchd plists, preserves the current
+runtime and agents, boots the new version, waits for health, and commits only after hook setup also
+succeeds. Failure restores the previous runtime and running services. Launchd calls a stable shell
+launcher that can find another supported Node 22+ installation if the originally used Node binary
+is removed.

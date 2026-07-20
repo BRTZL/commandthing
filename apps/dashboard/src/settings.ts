@@ -13,11 +13,10 @@ export interface Settings {
 
 const DEFAULTS: Settings = { uiScalePx: 18, lyricOffsetSec: 0.5 };
 const KEY = "commandthing.settings:v1";
-const LEGACY_KEY = "carthing.settings";
 
 function load(): Settings {
   try {
-    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
+    const raw = localStorage.getItem(KEY);
     if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
   } catch {
     /* ignore corrupt storage */

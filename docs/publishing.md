@@ -5,14 +5,14 @@ assets.
 
 ## Release readiness
 
-- Choose and add an open-source license.
+- Confirm the MIT license and security policy still match the intended release.
 - Replace personal Git commit email history if desired.
 - Confirm the `commandthing` npm and project names remain available.
 - Confirm the bundled feeder, tunnel, device controller, diagnostics, and dashboard are present in
   the tarball.
-- Add authentication or retain a prominent network warning for the feeder.
+- Confirm the generated default binds the feeder to `127.0.0.1`.
 - Test setup on a clean macOS account and at least one second Car Thing.
-- Add CI for pnpm install, checks, dashboard build, CLI tests, and package contents.
+- Confirm CI passes on Node.js 22 and 24, including the packed-CLI smoke test.
 
 ## Validate the CLI tarball
 
@@ -35,11 +35,11 @@ public packages require coordinated releases.
 Publishing changes external state and must be done explicitly after reviewing the tarball:
 
 ```bash
-pnpm --filter commandthing publish --access public
+pnpm --filter commandthing publish --access public --provenance
 ```
 
 ## GitHub release
 
-Tag the same version, summarize user-visible changes, include supported host/device requirements,
-and link migration steps. Keep the repository private until the public-readiness and secret audits
-are complete.
+Use npm trusted publishing with required two-factor authentication. Tag the same version, summarize
+user-visible changes, include supported host/device requirements, and link migration steps. Run a
+GitHub secret scan and review the packed tarball immediately before changing repository visibility.

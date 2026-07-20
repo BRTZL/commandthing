@@ -1,13 +1,25 @@
 import { spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync } from "node:fs";
-import { access, cp, mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  copyFile,
+  cp,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readConfigFileSync } from "./config.js";
 import { locations } from "./locations.js";
 
 const LABELS = ["com.commandthing.feeder", "com.commandthing.tunnel"];
-const LEGACY_LABELS = ["com.carthing.feeder", "com.carthing.tunnel"];
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 
 async function exists(path) {
@@ -62,7 +74,8 @@ function xml(value) {
     .replaceAll("'", "&apos;");
 }
 
-function plist({ label, program, logPath, homeDir, pathValue }) {
+/** Exported for deterministic unit tests; service installation still requires macOS. */
+export function launchAgentPlist({ label, program, homeDir, pathValue }) {
   const environment = [
     ["PATH", pathValue],
     ["COMMANDTHING_HOME", homeDir],
@@ -73,6 +86,7 @@ function plist({ label, program, logPath, homeDir, pathValue }) {
   const environmentXml = environment
     .map(([key, value]) => `    <key>${xml(key)}</key>\n    <string>${xml(value)}</string>`)
     .join("\n");
+  const argumentsXml = program.map((argument) => `    <string>${xml(argument)}</string>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -81,8 +95,7 @@ function plist({ label, program, logPath, homeDir, pathValue }) {
   <string>${xml(label)}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${xml(program[0])}</string>
-    <string>${xml(program[1])}</string>
+${argumentsXml}
   </array>
   <key>WorkingDirectory</key>
   <string>${xml(homeDir)}</string>
@@ -97,9 +110,9 @@ ${environmentXml}
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>${xml(logPath)}</string>
+  <string>/dev/null</string>
   <key>StandardErrorPath</key>
-  <string>${xml(logPath)}</string>
+  <string>/dev/null</string>
 </dict>
 </plist>
 `;
@@ -109,8 +122,21 @@ function launchDomain() {
   return `gui/${process.getuid()}`;
 }
 
+function launchAgentsDir() {
+  return process.env.COMMANDTHING_LAUNCH_AGENTS || join(homedir(), "Library", "LaunchAgents");
+}
+
 function agentPath(label) {
-  return join(homedir(), "Library", "LaunchAgents", `${label}.plist`);
+  return join(launchAgentsDir(), `${label}.plist`);
+}
+
+function serviceRunning(label) {
+  const result = run("launchctl", ["print", `${launchDomain()}/${label}`]);
+  return result.status === 0 && /state = running/.test(result.stdout);
+}
+
+function serviceLoaded(label) {
+  return run("launchctl", ["print", `${launchDomain()}/${label}`]).status === 0;
 }
 
 function stopLabel(label) {
@@ -127,7 +153,24 @@ async function buildRuntimeFromCheckout() {
   runOrThrow(process.execPath, [builder], { stdio: "inherit" });
 }
 
-export async function installRuntime(version) {
+function safeVersion(version) {
+  return String(version).replaceAll(/[^a-zA-Z0-9._-]/g, "-");
+}
+
+async function readCurrentVersion(root) {
+  const marker = join(root, "current.json");
+  if (!(await exists(marker))) return null;
+  try {
+    const value = JSON.parse(await readFile(marker, "utf8"));
+    return typeof value.version === "string" && /^[a-zA-Z0-9._-]+$/.test(value.version)
+      ? value.version
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function stageRuntime(version) {
   await buildRuntimeFromCheckout();
   const source = join(packageRoot, "runtime");
   if (!(await exists(join(source, "feeder.js")))) {
@@ -135,27 +178,90 @@ export async function installRuntime(version) {
   }
 
   const { runtimeRoot } = locations();
-  const safeVersion = String(version).replaceAll(/[^a-zA-Z0-9._-]/g, "-");
-  const destination = join(runtimeRoot, safeVersion);
+  const versionName = safeVersion(version);
+  const destination = join(runtimeRoot, versionName);
   const temporary = join(runtimeRoot, `.install-${process.pid}`);
+  const backup = join(runtimeRoot, `.rollback-${process.pid}`);
   await mkdir(runtimeRoot, { recursive: true });
   await rm(temporary, { recursive: true, force: true });
+  await rm(backup, { recursive: true, force: true });
   await cp(source, temporary, { recursive: true });
-  await rm(destination, { recursive: true, force: true });
-  await rename(temporary, destination);
-  await writeFile(join(runtimeRoot, "current.json"), `${JSON.stringify({ version: safeVersion })}\n`, "utf8");
-  return destination;
+  const replacedExisting = await exists(destination);
+  return { backup, destination, replacedExisting, temporary, versionName };
+}
+
+async function writeAtomic(path, contents, mode) {
+  const temporary = `${path}.commandthing.tmp`;
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(temporary, contents, "utf8");
+  if (mode != null) await chmod(temporary, mode);
+  await rename(temporary, path);
+}
+
+async function installSupportFiles() {
+  const { nodeLauncherPath, serviceRunnerPath } = locations();
+  await mkdir(dirname(nodeLauncherPath), { recursive: true });
+  const nodeLauncher = await readFile(join(packageRoot, "templates", "commandthing-node.sh"), "utf8");
+  const serviceRunner = await readFile(join(packageRoot, "templates", "service-runner.mjs"), "utf8");
+  await writeAtomic(nodeLauncherPath, nodeLauncher, 0o755);
+  await writeAtomic(serviceRunnerPath, serviceRunner, 0o755);
+}
+
+function shellQuote(value) {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+async function installLocalCli(versionName) {
+  const { cliLauncherPath, cliRoot, nodeLauncherPath } = locations();
+  const destination = join(cliRoot, versionName);
+  if (resolve(packageRoot) !== resolve(destination)) {
+    const temporary = join(cliRoot, `.install-${process.pid}`);
+    const backup = join(cliRoot, `.rollback-${process.pid}`);
+    await mkdir(cliRoot, { recursive: true });
+    await rm(temporary, { recursive: true, force: true });
+    await rm(backup, { recursive: true, force: true });
+    await mkdir(temporary, { recursive: true });
+    for (const entry of ["bin", "src", "templates", "runtime"]) {
+      await cp(join(packageRoot, entry), join(temporary, entry), { recursive: true });
+    }
+    await copyFile(join(packageRoot, "package.json"), join(temporary, "package.json"));
+    const replacing = await exists(destination);
+    if (replacing) await rename(destination, backup);
+    try {
+      await rename(temporary, destination);
+      await rm(backup, { recursive: true, force: true });
+    } catch (error) {
+      await rm(destination, { recursive: true, force: true });
+      if (replacing && (await exists(backup))) await rename(backup, destination);
+      throw error;
+    }
+  }
+  const localBin = join(destination, "bin", "commandthing.js");
+  const launcher = `#!/bin/sh\nexec /bin/sh ${shellQuote(nodeLauncherPath)} ${shellQuote(process.execPath)} ${shellQuote(localBin)} "$@"\n`;
+  await writeAtomic(cliLauncherPath, launcher, 0o755);
+  await writeAtomic(join(cliRoot, "current.json"), `${JSON.stringify({ version: versionName })}\n`, 0o644);
+}
+
+async function pruneVersions(root, retained) {
+  if (!(await exists(root))) return;
+  const keep = new Set(retained.filter(Boolean));
+  const entries = await readdir(root, { withFileTypes: true });
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && !keep.has(entry.name))
+      .map((entry) => rm(join(root, entry.name), { recursive: true, force: true })),
+  );
 }
 
 async function currentRuntimePath() {
   const { runtimeRoot } = locations();
   const marker = join(runtimeRoot, "current.json");
-  if (!(await exists(marker))) throw new Error("runtime is not installed; run commandthing setup first");
-  const { version } = JSON.parse(await readFile(marker, "utf8"));
-  if (typeof version !== "string" || !/^[a-zA-Z0-9._-]+$/.test(version)) {
-    throw new Error(`invalid runtime marker: ${marker}`);
-  }
-  return join(runtimeRoot, version);
+  const version = await readCurrentVersion(runtimeRoot);
+  if (!version)
+    throw new Error(`runtime is not installed or has an invalid marker; run commandthing setup (${marker})`);
+  const runtimeDir = join(runtimeRoot, version);
+  if (!(await exists(runtimeDir))) throw new Error(`installed runtime is missing: ${runtimeDir}`);
+  return runtimeDir;
 }
 
 export async function runRuntimeTool(name, args) {
@@ -166,49 +272,148 @@ export async function runRuntimeTool(name, args) {
   if (result.status !== 0) process.exitCode = result.status ?? 1;
 }
 
+/**
+ * Stage and boot a new installation. The caller must commit after hooks and health checks pass,
+ * or roll back on any error.
+ */
 export async function installServices(version) {
   requireMacOS();
+  const config = readConfigFileSync(locations().configPath);
+  if (
+    config.server.host !== "127.0.0.1" &&
+    config.server.host !== "localhost" &&
+    config.server.host !== "::1"
+  ) {
+    console.warn(
+      `! feeder is configured for ${config.server.host}; local network clients may reach its unauthenticated API`,
+    );
+  }
+
   const adb = executable("adb", [join(homedir(), "Library", "Android", "sdk", "platform-tools", "adb")]);
-  const runtimeDir = await installRuntime(version);
-  const { homeDir, logsDir } = locations();
-  const launchAgentsDir = dirname(agentPath(LABELS[0]));
-  await mkdir(launchAgentsDir, { recursive: true });
+  const previousRuntimeVersion = await readCurrentVersion(locations().runtimeRoot);
+  const previousPlists = new Map();
+  const previouslyLoaded = new Set();
+  for (const label of LABELS) {
+    const path = agentPath(label);
+    previousPlists.set(label, (await exists(path)) ? await readFile(path, "utf8") : null);
+    if (serviceLoaded(label)) previouslyLoaded.add(label);
+  }
+
+  const staged = await stageRuntime(version);
+  await installSupportFiles();
+  const { homeDir, logsDir, nodeLauncherPath, serviceRunnerPath } = locations();
+  await mkdir(launchAgentsDir(), { recursive: true });
   await mkdir(logsDir, { recursive: true });
 
   const pathParts = [
     dirname(process.execPath),
     adb ? dirname(adb) : null,
+    "/opt/homebrew/bin",
     "/usr/local/bin",
     "/usr/bin",
     "/bin",
   ].filter(Boolean);
   const pathValue = [...new Set(pathParts)].join(":");
-  const programs = {
-    "com.commandthing.feeder": [process.execPath, join(runtimeDir, "feeder.js")],
-    "com.commandthing.tunnel": [process.execPath, join(runtimeDir, "tunnel.js")],
+  const tools = {
+    "com.commandthing.feeder": join(staged.destination, "feeder.js"),
+    "com.commandthing.tunnel": join(staged.destination, "tunnel.js"),
+  };
+  const temporaryPlists = new Map();
+  try {
+    for (const label of LABELS) {
+      const temporaryPath = `${agentPath(label)}.commandthing.tmp`;
+      const applicationLog = join(logsDir, `${label}.log`);
+      const program = [
+        "/bin/sh",
+        nodeLauncherPath,
+        process.execPath,
+        serviceRunnerPath,
+        tools[label],
+        applicationLog,
+      ];
+      await writeFile(
+        temporaryPath,
+        launchAgentPlist({
+          label,
+          program,
+          homeDir,
+          pathValue,
+        }),
+        "utf8",
+      );
+      runOrThrow("plutil", ["-lint", temporaryPath]);
+      temporaryPlists.set(label, temporaryPath);
+    }
+  } catch (error) {
+    for (const path of temporaryPlists.values()) await unlink(path).catch(() => {});
+    await rm(staged.temporary, { recursive: true, force: true });
+    throw error;
+  }
+
+  let finished = false;
+  let runtimeSwitched = false;
+  const rollback = async () => {
+    if (finished) return;
+    finished = true;
+    for (const label of LABELS) stopLabel(label);
+    for (const label of LABELS) {
+      const previous = previousPlists.get(label);
+      if (previous == null) await unlink(agentPath(label)).catch(() => {});
+      else await writeAtomic(agentPath(label), previous, 0o644);
+    }
+    const marker = join(locations().runtimeRoot, "current.json");
+    if (previousRuntimeVersion) {
+      await writeAtomic(marker, `${JSON.stringify({ version: previousRuntimeVersion })}\n`, 0o644);
+    } else {
+      await unlink(marker).catch(() => {});
+    }
+    await rm(staged.temporary, { recursive: true, force: true });
+    if (runtimeSwitched) await rm(staged.destination, { recursive: true, force: true });
+    if (staged.replacedExisting && (await exists(staged.backup))) {
+      await rename(staged.backup, staged.destination);
+    }
+    for (const label of previouslyLoaded) {
+      if (await exists(agentPath(label))) {
+        run("launchctl", ["bootstrap", launchDomain(), agentPath(label)]);
+        run("launchctl", ["enable", `${launchDomain()}/${label}`]);
+      }
+    }
   };
 
-  for (const label of [...LABELS, ...LEGACY_LABELS]) stopLabel(label);
-  for (const label of LEGACY_LABELS) await unlink(agentPath(label)).catch(() => {});
-  for (const label of LABELS) {
-    await writeFile(
-      agentPath(label),
-      plist({
-        label,
-        program: programs[label],
-        logPath: join(logsDir, `${label}.log`),
-        homeDir,
-        pathValue,
-      }),
-      "utf8",
-    );
-    runOrThrow("launchctl", ["bootstrap", launchDomain(), agentPath(label)]);
-    run("launchctl", ["enable", `${launchDomain()}/${label}`]);
+  try {
+    for (const label of LABELS) stopLabel(label);
+    if (staged.replacedExisting) await rename(staged.destination, staged.backup);
+    await rename(staged.temporary, staged.destination);
+    runtimeSwitched = true;
+    for (const label of LABELS) await rename(temporaryPlists.get(label), agentPath(label));
+    for (const label of LABELS) {
+      runOrThrow("launchctl", ["bootstrap", launchDomain(), agentPath(label)]);
+      run("launchctl", ["enable", `${launchDomain()}/${label}`]);
+    }
+  } catch (error) {
+    await rollback();
+    throw error;
+  } finally {
+    for (const path of temporaryPlists.values()) await unlink(path).catch(() => {});
   }
 
   if (!adb)
     console.warn("! adb was not found; the feeder will run, but the device tunnel cannot connect yet");
-  return runtimeDir;
+
+  return {
+    runtimeDir: staged.destination,
+    rollback,
+    commit: async () => {
+      if (finished) return;
+      const marker = join(locations().runtimeRoot, "current.json");
+      await writeAtomic(marker, `${JSON.stringify({ version: staged.versionName })}\n`, 0o644);
+      await pruneVersions(locations().runtimeRoot, [staged.versionName, previousRuntimeVersion]);
+      await pruneVersions(locations().cliRoot, [staged.versionName, previousRuntimeVersion]);
+      await installLocalCli(staged.versionName);
+      await rm(staged.backup, { recursive: true, force: true });
+      finished = true;
+    },
+  };
 }
 
 export function startServices() {
@@ -218,9 +423,8 @@ export function startServices() {
     if (!existsSync(path)) {
       throw new Error(`services are not installed; run commandthing setup first (${path} is missing)`);
     }
-    if (run("launchctl", ["print", `${launchDomain()}/${label}`]).status !== 0) {
-      runOrThrow("launchctl", ["bootstrap", launchDomain(), path]);
-    }
+    if (!serviceLoaded(label)) runOrThrow("launchctl", ["bootstrap", launchDomain(), path]);
+    else runOrThrow("launchctl", ["kickstart", "-k", `${launchDomain()}/${label}`]);
     run("launchctl", ["enable", `${launchDomain()}/${label}`]);
   }
   console.log("CommandThing services started");
@@ -238,13 +442,8 @@ export function restartServices() {
 }
 
 async function feederUrl() {
-  const { configPath } = locations();
-  let port = 4000;
-  if (await exists(configPath)) {
-    const config = JSON.parse(await readFile(configPath, "utf8"));
-    port = Number(config?.server?.port ?? port);
-  }
-  return `http://localhost:${port}`;
+  const config = readConfigFileSync(locations().configPath);
+  return `http://localhost:${config.server.port}`;
 }
 
 export async function waitForHealthyFeeder(timeoutMs = 15_000) {
@@ -257,19 +456,27 @@ export async function waitForHealthyFeeder(timeoutMs = 15_000) {
     } catch {
       // Service startup is asynchronous; retry until the deadline.
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolveWait) => setTimeout(resolveWait, 250));
   }
   throw new Error(`feeder did not become healthy at ${url}; run commandthing logs`);
 }
 
 export async function statusServices() {
   requireMacOS();
+  const { nodeLauncherPath, serviceRunnerPath } = locations();
   let healthy = true;
   for (const label of LABELS) {
-    const result = run("launchctl", ["print", `${launchDomain()}/${label}`]);
-    const running = result.status === 0 && /state = running/.test(result.stdout);
+    const running = serviceRunning(label);
     console.log(`${running ? "✓" : "!"} ${basename(label)}: ${running ? "running" : "stopped"}`);
     healthy &&= running;
+  }
+  for (const [label, path] of [
+    ["Node launcher", nodeLauncherPath],
+    ["Service runner", serviceRunnerPath],
+  ]) {
+    const present = await exists(path);
+    console.log(`${present ? "✓" : "!"} ${label}: ${path}`);
+    healthy &&= present;
   }
   const url = await feederUrl();
   try {
@@ -295,7 +502,14 @@ export async function uninstallServices({ removeRuntime = true } = {}) {
   requireMacOS();
   stopServices({ quiet: true });
   for (const label of LABELS) await unlink(agentPath(label)).catch(() => {});
-  if (removeRuntime) await rm(locations().runtimeRoot, { recursive: true, force: true });
+  if (removeRuntime) {
+    const { cliLauncherPath, cliRoot, nodeLauncherPath, runtimeRoot, serviceRunnerPath } = locations();
+    await rm(runtimeRoot, { recursive: true, force: true });
+    await rm(cliRoot, { recursive: true, force: true });
+    await Promise.all(
+      [cliLauncherPath, nodeLauncherPath, serviceRunnerPath].map((path) => unlink(path).catch(() => {})),
+    );
+  }
   console.log("CommandThing services uninstalled");
 }
 

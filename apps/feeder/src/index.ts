@@ -8,7 +8,7 @@
  *    envelope, so the same dashboard works here and on the Car Thing.
  *  - Serve the built dashboard from apps/dashboard/dist for browser preview.
  *
- * Run from the workspace root with: pnpm feeder (PORT=4000 by default)
+ * Run from the workspace root with `pnpm feeder`; host settings come from ~/.commandthing/config.json.
  */
 
 import { existsSync } from "node:fs";
@@ -29,6 +29,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import { buildSessions } from "./claudeWatcher.ts";
 import { config, configPath } from "./config.ts";
 import { HookStore } from "./hooks.ts";
+import { BufferCache, HttpError, parseArtworkUrl, readJsonBody, websocketOriginAllowed } from "./http.ts";
 import { ensureLyrics, getNowPlaying, mediaControl } from "./media.ts";
 import { getSessionDetail } from "./sessionDetail.ts";
 import { getUsage } from "./usage.ts";
@@ -45,7 +46,7 @@ const hooks = new HookStore();
 const clients = new Set<WebSocket>();
 let current: DashboardState = emptyState(hostname());
 let nowPlaying: NowPlaying | null = null;
-const artCache = new Map<string, Buffer>(); // proxied Spotify album art
+const artCache = new BufferCache(20 * 1024 * 1024); // bounded proxied Spotify album art
 
 function rebuild(): void {
   const now = Date.now();
@@ -135,16 +136,6 @@ function json(res: ServerResponse, value: unknown, status = 200): void {
   send(res, status, JSON.stringify(value), { "content-type": "application/json; charset=utf-8" });
 }
 
-async function requestJson(req: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  } catch {
-    return null;
-  }
-}
-
 async function serveStatic(pathname: string, res: ServerResponse): Promise<void> {
   if (!existsSync(DIST_DIR)) {
     send(
@@ -186,11 +177,12 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
     // Album-art proxy: the device has no internet, so it loads Spotify CDN art
     // through here. Restricted to the Spotify image host; cached in memory.
     if (url.pathname === "/api/artwork") {
-      const u = url.searchParams.get("u") ?? "";
-      if (!u.startsWith("https://i.scdn.co/")) {
+      const artworkUrl = parseArtworkUrl(url.searchParams.get("u") ?? "");
+      if (!artworkUrl) {
         send(res, 400, "bad art url");
         return;
       }
+      const u = artworkUrl.toString();
       const headers = { "content-type": "image/jpeg", "cache-control": "max-age=86400" };
       const hit = artCache.get(u);
       if (hit) {
@@ -198,7 +190,12 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
         return;
       }
       try {
-        const buf = Buffer.from(await (await fetch(u)).arrayBuffer());
+        const response = await fetch(u, { signal: AbortSignal.timeout(5000) });
+        if (!response.ok) throw new Error(`artwork responded with HTTP ${response.status}`);
+        const declaredLength = Number(response.headers.get("content-length") ?? 0);
+        if (declaredLength > 5 * 1024 * 1024) throw new Error("artwork is too large");
+        const buf = Buffer.from(await response.arrayBuffer());
+        if (buf.length > 5 * 1024 * 1024) throw new Error("artwork is too large");
         artCache.set(u, buf);
         send(res, 200, buf, headers);
       } catch {
@@ -224,7 +221,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
     }
 
     if (url.pathname === "/hook" && req.method === "POST") {
-      const body = await requestJson(req);
+      const body = await readJsonBody(req);
       const changed = hooks.ingest(body);
       if (changed) rebuild();
       json(res, { ok: changed });
@@ -234,7 +231,8 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
     await serveStatic(url.pathname, res);
   } catch (error) {
     console.error("[feeder] request failed", error);
-    if (!res.headersSent) send(res, 500, "internal server error");
+    if (!res.headersSent && error instanceof HttpError) send(res, error.status, error.message);
+    else if (!res.headersSent) send(res, 500, "internal server error");
     else res.end();
   }
 }
@@ -242,11 +240,18 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
 const server = createServer((req, res) => {
   void handleHttp(req, res);
 });
+server.headersTimeout = 5000;
+server.requestTimeout = 10_000;
 const webSockets = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || `localhost:${PORT}`}`);
   if (url.pathname !== "/ws") {
+    socket.destroy();
+    return;
+  }
+  const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
+  if (!websocketOriginAllowed(origin, req.headers.host)) {
     socket.destroy();
     return;
   }

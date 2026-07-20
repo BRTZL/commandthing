@@ -19,7 +19,7 @@ than relying on packages hoisted at the root.
 | `pnpm ui` | Run only Vite on port 5173 |
 | `pnpm build` | Build the Chromium 69 production dashboard |
 | `pnpm typecheck` | Type-check the dashboard and feeder |
-| `pnpm test` | Run CLI regression tests |
+| `pnpm test` | Run feeder and CLI regression tests |
 | `pnpm preview` | Build and serve production on port 4000 |
 | `pnpm lint` | Lint the repository |
 | `pnpm check` | Check formatting and lint without modifying files |
@@ -47,9 +47,14 @@ pnpm commandthing uninstall
 
 The installer packages the feeder, tunnel, device helper, and legacy dashboard into
 `~/.commandthing/runtime/<version>`, so launchd never depends on the checkout path. Agents use the
-`com.commandthing.feeder` and `com.commandthing.tunnel` labels. Installation removes labels from
-the pre-rename `com.carthing.*` version to prevent port conflicts. Logs are written under
-`~/.commandthing/logs`; `pnpm commandthing logs` follows both files.
+`com.commandthing.feeder` and `com.commandthing.tunnel` labels. A stable launcher resolves a
+supported Node 22+ executable instead of permanently depending on an nvm version path. Service logs
+are rotated at 5 MiB with three retained files under `~/.commandthing/logs`; `pnpm commandthing logs`
+follows both active files.
+
+Installation is transactional: both plists are generated and linted before the active services are
+stopped. The previous agents and runtime are restored when bootstrap, hook installation, or feeder
+health validation fails. Successful updates retain only the current and previous runtime versions.
 
 Advanced device investigations are also CLI-owned:
 

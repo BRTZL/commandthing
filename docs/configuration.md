@@ -6,9 +6,10 @@ location is `~/.commandthing`:
 ```text
 ~/.commandthing/
   config.json
-  bin/          Generated hook forwarders
-  backups/      Claude settings backups
-  logs/         Feeder, tunnel, and diagnostic logs
+  bin/          Offline CLI, service launchers, and generated hook forwarder
+  backups/      Up to five recent Claude settings backups
+  cli/          Installed versioned management CLI
+  logs/         Rotating feeder, tunnel, and diagnostic logs
   runtime/      Installed versioned feeder, tunnel, and dashboard files
   screenshots/  Device screenshots
 ```
@@ -17,8 +18,8 @@ No `.env` file is required. Create the config with:
 
 ```bash
 npx commandthing@latest config init
-npx commandthing@latest config path
-npx commandthing@latest config show
+~/.commandthing/bin/commandthing config path
+~/.commandthing/bin/commandthing config show
 ```
 
 ## Config file
@@ -28,7 +29,7 @@ The generated `config.json` uses these defaults:
 ```json
 {
   "server": {
-    "host": "0.0.0.0",
+    "host": "127.0.0.1",
     "port": 4000
   },
   "openUsage": {
@@ -44,17 +45,18 @@ The generated `config.json` uses these defaults:
 
 Restart the feeder and tunnel after changing the port or host. The dashboard uses the same origin
 as the feeder, and Vite proxies development requests automatically, so it needs no separate URL.
+Unknown fields, malformed URLs, and invalid ports are rejected instead of silently ignored.
+
+The loopback host is a security boundary. The ADB reverse tunnel can reach it without exposing the
+API to the LAN. Setting `host` to `0.0.0.0` is an explicit opt-in that should be used only on a
+trusted network or behind an authenticated proxy and firewall rules.
 
 ## Location override
 
 `COMMANDTHING_HOME` overrides the entire CommandThing data directory, and `COMMANDTHING_CONFIG`
 overrides the config file path. These are process-level escape hatches for packaging and tests, not
-values that belong in a project `.env` file.
-
-The feeder still accepts `HOST`, `PORT`, `OPEN_USAGE_URL`, `USAGE_REFRESH_MS`, `POLL_MS`, and
-`MEDIA_MS` for compatibility with older installations. A process environment value takes
-precedence over `config.json`. New installations should use the config file so every component
-reads the same settings.
+values that belong in a project `.env` file. Runtime settings such as the host, port, and polling
+intervals are accepted only through `config.json`, so every component reads the same values.
 
 ## Sensitive data
 

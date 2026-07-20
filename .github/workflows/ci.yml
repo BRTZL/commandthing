@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm --filter commandthing pack:check
+      - name: Enforce runtime boundaries
+        run: |
+          test ! -d scripts
+          ! grep -R "CARTHING_FEEDER\|com\.carthing\|carthing\.settings" apps packages docs
+      - name: Smoke-test packed CLI
+        shell: bash
+        run: |
+          pnpm --filter commandthing pack --pack-destination "$RUNNER_TEMP"
+          mkdir "$RUNNER_TEMP/commandthing-smoke"
+          cd "$RUNNER_TEMP/commandthing-smoke"
+          npm init --yes >/dev/null
+          npm install "$RUNNER_TEMP"/commandthing-*.tgz
+          ./node_modules/.bin/commandthing --version

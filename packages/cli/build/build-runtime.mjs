@@ -29,7 +29,7 @@ await build({
   bundle: true,
   format: "esm",
   platform: "node",
-  target: "node18",
+  target: "node22",
   banner: {
     js: 'import { createRequire as __commandThingCreateRequire } from "node:module"; const require = __commandThingCreateRequire(import.meta.url);',
   },
