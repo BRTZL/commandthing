@@ -46,8 +46,8 @@ Dashboard state uses a nocturned-compatible event envelope:
 }
 ```
 
-The browser connects to `/ws`. Vite development can override the address with `VITE_WS_URL` or the
-runtime `?ws=` query parameter.
+The browser connects to `/ws` on its current origin. Vite development proxies that path to the
+feeder. The runtime `?ws=` query parameter remains available for diagnostics.
 
 ## Ports
 
@@ -57,6 +57,8 @@ runtime `?ws=` query parameter.
 | `5173` | Vite | Development-only UI with hot reload |
 | `6736` | Open Usage | Optional provider usage source |
 | `2222` | Device tooling | Forwarded Chromium DevTools endpoint |
+
+The feeder and tunnel read the configured server port. See [Configuration](configuration.md).
 
 ## Device constraints
 

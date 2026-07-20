@@ -1,6 +1,7 @@
 import legacy from "@vitejs/plugin-legacy";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { config } from "../feeder/src/config";
 
 // The Car Thing kiosk runs a ~Chromium-69 engine (QtWebEngine 5.12.7). It
 // supports <script type=module>, so it would otherwise load Vite's MODERN
@@ -19,8 +20,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/ws": { target: "ws://localhost:4000", ws: true },
-      "/api": { target: "http://localhost:4000" },
+      "/ws": { target: `http://localhost:${config.server.port}`, ws: true },
+      "/api": { target: `http://localhost:${config.server.port}` },
     },
   },
   build: {

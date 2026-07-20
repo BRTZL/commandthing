@@ -5,6 +5,7 @@ Start with the guide that matches what you are trying to do:
 | Goal | Guide |
 |---|---|
 | Run CommandThing on a Mac | [Getting started](getting-started.md) |
+| Change ports, Open Usage, or local paths | [Configuration](configuration.md) |
 | Configure Claude Code hooks | [CLI](cli.md) |
 | Connect a physical Car Thing | [Device setup](device-setup.md) |
 | Understand components and data flow | [Architecture](architecture.md) |

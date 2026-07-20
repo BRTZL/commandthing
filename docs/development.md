@@ -50,7 +50,8 @@ pnpm daemon:uninstall
 
 The installer generates machine-specific paths at runtime; none are committed. Agents use the
 `com.commandthing.feeder` and `com.commandthing.tunnel` labels. Installation removes labels from
-the pre-rename `com.carthing.*` version to prevent port conflicts.
+the pre-rename `com.carthing.*` version to prevent port conflicts. Logs are written under
+`~/.config/commandthing/logs`; `pnpm daemon:logs` follows both files.
 
 ## Chromium 69 rules
 
@@ -88,4 +89,4 @@ For React changes, also run React Doctor from `apps/dashboard`.
 2. Give internal packages an `@commandthing/*` name.
 3. Reference internal dependencies with `workspace:*`.
 4. Add root scripts only for common user workflows.
-5. Document new ports, environment variables, or persistent files.
+5. Document new ports, config fields, or persistent files.

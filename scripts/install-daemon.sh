@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install launchd LaunchAgents that auto-start the Car Thing stack at LOGIN and
 # keep it alive:
-#   com.commandthing.feeder  - the Bun feeder on :4000 (serves dist + WS + media)
-#   com.commandthing.tunnel  - adb-reverse watchdog (device localhost:4000 -> Mac)
+#   com.commandthing.feeder  - the Bun feeder (serves dist + WS + media)
+#   com.commandthing.tunnel  - adb-reverse watchdog (device localhost -> Mac)
 #
 # LaunchAgents (not LaunchDaemons) on purpose: the feeder drives Spotify via
 # AppleScript, which needs the user's GUI session. That means these start at
@@ -18,6 +18,8 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LA="$HOME/Library/LaunchAgents"
 GUI="gui/$(id -u)"
+CONFIG_ROOT="${COMMANDTHING_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/commandthing}"
+LOG_DIR="$CONFIG_ROOT/logs"
 
 BUN="$(command -v bun || true)"; [ -n "$BUN" ] || BUN="$HOME/.bun/bin/bun"
 ADB="$(command -v adb || true)"; [ -n "$ADB" ] || ADB="$HOME/Library/Android/sdk/platform-tools/adb"
@@ -27,7 +29,7 @@ ADB_DIR="$(dirname "$ADB")"
 [ -x "$BUN" ] || { echo "error: bun not found (looked at $BUN)"; exit 1; }
 [ -x "$ADB" ] || echo "warning: adb not found at $ADB — the tunnel agent won't arm until adb is on PATH"
 
-mkdir -p "$LA"
+mkdir -p "$LA" "$LOG_DIR"
 
 # The feeder + watchdog both need bun & adb on PATH; launchd hands processes a
 # bare PATH, so we set it explicitly.
@@ -68,9 +70,9 @@ $env_extra  </dict>
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>$HOME/.commandthing-$label.log</string>
+  <string>$LOG_DIR/$label.log</string>
   <key>StandardErrorPath</key>
-  <string>$HOME/.commandthing-$label.log</string>
+  <string>$LOG_DIR/$label.log</string>
 </dict>
 </plist>
 PLIST
@@ -79,16 +81,12 @@ PLIST
 write_plist "com.commandthing.feeder" \
   "$BUN
 run
-$REPO/apps/feeder/src/index.ts" \
-  "    <key>HOST</key>
-    <string>0.0.0.0</string>
-"
+$REPO/apps/feeder/src/index.ts"
 
 write_plist "com.commandthing.tunnel" \
   "$BUN
 run
-$REPO/scripts/connect.ts
-4000"
+$REPO/scripts/connect.ts"
 
 reload_agent() { # $1=label — bootout if loaded, wait for teardown, then bootstrap
   local label="$1"
@@ -102,7 +100,7 @@ reload_agent() { # $1=label — bootout if loaded, wait for teardown, then boots
   launchctl enable "$GUI/$label" 2>/dev/null || true
 }
 
-# Stop labels used before the CommandThing rename so they cannot fight for :4000.
+# Stop labels used before the CommandThing rename so they cannot fight for the feeder port.
 for legacy in com.carthing.feeder com.carthing.tunnel; do
   launchctl bootout "$GUI/$legacy" 2>/dev/null || true
   rm -f "$LA/$legacy.plist"
@@ -113,8 +111,8 @@ for label in com.commandthing.feeder com.commandthing.tunnel; do
 done
 
 echo "✓ installed + started:"
-echo "    com.commandthing.feeder  → feeder on :4000"
+echo "    com.commandthing.feeder  → feeder (port from $CONFIG_ROOT/config.json)"
 echo "    com.commandthing.tunnel  → adb reverse + kiosk auto-reload"
-echo "  logs: $HOME/.commandthing-com.commandthing.feeder.log"
-echo "        $HOME/.commandthing-com.commandthing.tunnel.log"
+echo "  logs: $LOG_DIR/com.commandthing.feeder.log"
+echo "        $LOG_DIR/com.commandthing.tunnel.log"
 echo "  manage: launchctl print $GUI/com.commandthing.feeder   |   pnpm daemon:uninstall"

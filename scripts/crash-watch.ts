@@ -6,13 +6,18 @@
  * bisect which UI element is responsible (deploy a variant, watch the rate).
  *
  * Usage: bun run scripts/crash-watch.ts [minutes=20] [intervalSec=15] [label]
- * Log:   .commandthing-crashwatch.log
+ * Log:   ~/.config/commandthing/logs/crash-watch.log
  */
+import { join } from "node:path";
+import { config } from "../apps/feeder/src/config";
+import { ensureUserDirectories, logDir } from "./paths.ts";
+
 const minutes = Number(process.argv[2] ?? 20);
 const intervalSec = Number(process.argv[3] ?? 15);
 const label = process.argv[4] ?? "baseline";
 const DIR = "/var/cache/chrome_storage/Crash Reports";
-const LOG = `${new URL("..", import.meta.url).pathname}.commandthing-crashwatch.log`;
+ensureUserDirectories();
+const LOG = join(logDir, "crash-watch.log");
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const ts = () => new Date().toTimeString().slice(0, 8);
@@ -45,7 +50,9 @@ async function dumps(): Promise<string[]> {
  *  burst with the exact track/lyrics that were on screen. */
 async function nowPlaying(): Promise<string> {
   try {
-    const r = await fetch("http://localhost:4000/state", { signal: AbortSignal.timeout(2000) });
+    const r = await fetch(`http://localhost:${config.server.port}/state`, {
+      signal: AbortSignal.timeout(2000),
+    });
     const n = (await r.json())?.nowPlaying;
     if (!n) return "np=none";
     const id =

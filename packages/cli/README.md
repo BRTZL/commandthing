@@ -6,6 +6,7 @@ The package is not published yet. Inside the repository, use:
 
 ```bash
 pnpm commandthing setup hooks
+pnpm commandthing config init
 pnpm commandthing doctor
 pnpm commandthing remove hooks
 ```

@@ -10,7 +10,6 @@ import { type DashboardState, WS_TOPIC } from "./dashboardTypes";
 function resolveUrl(): string {
   const param = new URLSearchParams(window.location.search).get("ws");
   if (param) return param;
-  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/ws`;
 }

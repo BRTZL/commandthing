@@ -26,7 +26,8 @@ fast and continue working offline.
 pnpm commandthing setup hooks
 ```
 
-Use a different feeder address when necessary:
+Setup reads the feeder port from `~/.config/commandthing/config.json`. Use an explicit remote
+address only when necessary:
 
 ```bash
 pnpm commandthing setup hooks --feeder-url http://localhost:4000
@@ -35,8 +36,8 @@ pnpm commandthing setup hooks --feeder-url http://localhost:4000
 Setup performs the following operations:
 
 1. Validates the feeder URL.
-2. Writes `~/.commandthing/bin/commandthing-hook.mjs`.
-3. Backs up existing Claude settings under `~/.commandthing/backups/`.
+2. Writes `~/.config/commandthing/bin/commandthing-hook.mjs`.
+3. Backs up existing Claude settings under `~/.config/commandthing/backups/`.
 4. Atomically merges CommandThing into each supported Claude hook event.
 5. Removes older CommandThing hook entries so rerunning setup is idempotent.
 
@@ -60,6 +61,16 @@ pnpm commandthing doctor
 Doctor reports Node.js, Bun, adb, Claude settings, installed hooks, and feeder health. Missing `adb`
 is expected when using browser preview without physical hardware.
 
+## Manage configuration
+
+```bash
+pnpm commandthing config init
+pnpm commandthing config path
+pnpm commandthing config show
+```
+
+See [Configuration](configuration.md) for the schema and generated-file locations.
+
 ## Forward one hook manually
 
 ```bash
@@ -74,7 +85,7 @@ Claude Code.
 
 | Variable | Purpose |
 |---|---|
-| `COMMANDTHING_HOME` | Override the `~/.commandthing` state directory |
+| `COMMANDTHING_HOME` | Override the `~/.config/commandthing` data directory |
 | `COMMANDTHING_CLAUDE_SETTINGS` | Override the Claude settings file |
 | `COMMANDTHING_FEEDER_URL` | Override the URL used by `commandthing hook` |
 | `CARTHING_FEEDER` | Legacy alias for `COMMANDTHING_FEEDER_URL` |

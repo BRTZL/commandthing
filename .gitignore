@@ -20,7 +20,7 @@ Thumbs.db
 .idea/
 *.swp
 
-# Environment files are local; commit only sanitized examples.
+# No project env file is required. Ignore any accidental local env files as a secrets safeguard.
 .env
 .env.*
 !.env.example

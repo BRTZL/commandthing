@@ -24,15 +24,14 @@ import {
 } from "@commandthing/protocol";
 import type { ServerWebSocket } from "bun";
 import { buildSessions } from "./claudeWatcher.ts";
+import { config, configPath } from "./config.ts";
 import { HookStore } from "./hooks.ts";
 import { ensureLyrics, getNowPlaying, mediaControl } from "./media.ts";
 import { getSessionDetail } from "./sessionDetail.ts";
 import { getUsage } from "./usage.ts";
 
-const PORT = Number(process.env.PORT ?? 4000);
-const HOST = process.env.HOST ?? "0.0.0.0"; // bind all interfaces so the device can reach us over USB-net
-const POLL_MS = Number(process.env.POLL_MS ?? 2000);
-const MEDIA_MS = Number(process.env.MEDIA_MS ?? 1000); // now-playing samples faster than sessions
+const { port: PORT, host: HOST } = config.server;
+const { sessionsMs: POLL_MS, mediaMs: MEDIA_MS } = config.refresh;
 const DIST_DIR = join(import.meta.dir, "..", "..", "dashboard", "dist");
 
 const hooks = new HookStore();
@@ -213,5 +212,6 @@ refreshMedia();
 setInterval(refreshMedia, MEDIA_MS);
 
 console.log(`[feeder] http://localhost:${server.port}  ws://localhost:${server.port}/ws`);
+console.log(`[feeder] config: ${configPath}${existsSync(configPath) ? "" : " (defaults)"}`);
 console.log(`[feeder] polling ~/.claude every ${POLL_MS}ms`);
 console.log(`[feeder] hook receiver: POST http://localhost:${server.port}/hook`);

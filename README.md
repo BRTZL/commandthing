@@ -38,6 +38,9 @@ pnpm feeder
 Open <http://localhost:4000>. The Usage page also expects the optional Open Usage service at
 `http://localhost:6736/v1/usage`.
 
+Machine settings, logs, backups, and screenshots live under `~/.config/commandthing`; project
+`.env` files are not needed.
+
 Install Claude Code hooks without editing `~/.claude/settings.json` by hand:
 
 ```bash
@@ -64,6 +67,7 @@ tools.
 
 - [Documentation index](docs/README.md)
 - [Getting started](docs/getting-started.md)
+- [Configuration and local data](docs/configuration.md)
 - [CLI and Claude hooks](docs/cli.md)
 - [Device setup](docs/device-setup.md)
 - [Architecture](docs/architecture.md)

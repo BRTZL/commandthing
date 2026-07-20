@@ -47,6 +47,8 @@ test("hook setup is idempotent and removal preserves unrelated settings", async 
     assert.equal(run(["setup", "hooks"], paths).status, 0);
 
     const installed = JSON.parse(await readFile(paths.settingsPath, "utf8"));
+    const config = JSON.parse(await readFile(join(paths.stateDir, "config.json"), "utf8"));
+    assert.equal(config.server.port, 4000);
     assert.equal(installed.theme, "dark");
     assert.deepEqual(Object.keys(installed.hooks).sort(), [...events].sort());
     for (const event of events) {
@@ -70,6 +72,20 @@ test("hook setup rejects non-http feeder URLs", async () => {
     const result = run(["setup", "hooks", "--feeder-url", "file:///tmp/socket"], paths);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /must use http or https/);
+  } finally {
+    await rm(paths.root, { recursive: true, force: true });
+  }
+});
+
+test("hook setup uses the configured feeder port", async () => {
+  const paths = await fixture();
+  try {
+    await mkdir(paths.stateDir, { recursive: true });
+    await writeFile(join(paths.stateDir, "config.json"), '{"server":{"port":4321}}\n');
+    assert.equal(run(["setup", "hooks"], paths).status, 0);
+
+    const forwarder = await readFile(join(paths.stateDir, "bin", "commandthing-hook.mjs"), "utf8");
+    assert.match(forwarder, /http:\/\/localhost:4321/);
   } finally {
     await rm(paths.root, { recursive: true, force: true });
   }

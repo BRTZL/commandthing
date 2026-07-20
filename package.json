@@ -20,7 +20,7 @@
     "device:connect": "bun run scripts/connect.ts",
     "daemon:install": "bash scripts/install-daemon.sh",
     "daemon:uninstall": "bash scripts/uninstall-daemon.sh",
-    "daemon:logs": "tail -f ~/.commandthing-com.commandthing.feeder.log ~/.commandthing-com.commandthing.tunnel.log",
+    "daemon:logs": "bash scripts/logs.sh",
     "device:reload": "bun run scripts/device.ts reload",
     "device:shot": "bun run scripts/device.ts shot",
     "device:open": "bun run scripts/device.ts open",

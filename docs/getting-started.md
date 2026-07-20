@@ -27,12 +27,14 @@ cd commandthing
 pnpm install
 ```
 
-Environment files are local and never committed. Vite proxies to the feeder automatically. Copy the
-dashboard example only when you need to override its development WebSocket URL:
+Create the machine-level config. This also creates `~/.config/commandthing`:
 
 ```bash
-cp apps/dashboard/.env.example apps/dashboard/.env
+pnpm commandthing config init
 ```
+
+CommandThing does not require a project `.env` file. See [Configuration](configuration.md) for
+ports, Open Usage, logs, and other local data.
 
 ## Production preview
 
@@ -69,8 +71,8 @@ Install CommandThing's hooks safely:
 pnpm commandthing setup hooks
 ```
 
-The CLI creates a small stable forwarder under `~/.commandthing`, backs up Claude settings, and
-merges its entries with existing hooks. See [CLI](cli.md) for removal and diagnostics.
+The CLI creates a small stable forwarder under `~/.config/commandthing`, backs up Claude settings,
+and merges its entries with existing hooks. See [CLI](cli.md) for removal and diagnostics.
 
 ## Next steps
 

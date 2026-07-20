@@ -2,7 +2,15 @@
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { doctor, forwardHook, removeHooks, setupHooks } from "../src/commands.js";
+import {
+  doctor,
+  forwardHook,
+  initConfig,
+  printConfigPath,
+  removeHooks,
+  setupHooks,
+  showConfig,
+} from "../src/commands.js";
 
 const packagePath = fileURLToPath(new URL("../package.json", import.meta.url));
 const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
@@ -19,6 +27,9 @@ function help() {
 Usage:
   commandthing setup hooks [--feeder-url URL]  Install Claude Code hooks
   commandthing remove hooks                  Remove CommandThing hooks
+  commandthing config init                  Create the user config file
+  commandthing config show                  Print the effective user config
+  commandthing config path                  Print the config file location
   commandthing hook                          Forward one hook payload from stdin
   commandthing doctor                        Check local requirements
   commandthing --version                     Print the CLI version
@@ -39,11 +50,23 @@ async function main() {
     return;
   }
   if (command === "setup" && (!target || target === "hooks")) {
-    await setupHooks({ feederUrl: option("--feeder-url", "http://localhost:4000") });
+    await setupHooks({ feederUrl: option("--feeder-url") });
     return;
   }
   if (command === "remove" && target === "hooks") {
     await removeHooks();
+    return;
+  }
+  if (command === "config" && target === "init") {
+    await initConfig();
+    return;
+  }
+  if (command === "config" && target === "show") {
+    await showConfig();
+    return;
+  }
+  if (command === "config" && target === "path") {
+    printConfigPath();
     return;
   }
   if (command === "hook") {

@@ -17,7 +17,9 @@
  * Usage: pnpm device:connect (default port 4000)
  */
 
-const PORT = Number(process.argv[2] ?? 4000);
+import { config } from "../apps/feeder/src/config";
+
+const PORT = Number(process.argv[2] ?? config.server.port);
 const REPO = new URL("..", import.meta.url).pathname; // trailing slash
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

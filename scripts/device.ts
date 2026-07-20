@@ -22,6 +22,9 @@
  *    the Car Thing and retry.
  */
 
+import { join } from "node:path";
+import { ensureUserDirectories, screenshotDir } from "./paths.ts";
+
 const CDP_PORT = Number(process.env.CDP_PORT ?? 2222);
 const [cmd, arg] = process.argv.slice(2);
 
@@ -90,7 +93,8 @@ async function main() {
     await send("Page.reload", { ignoreCache: true });
     console.log("device: reloaded");
   } else if (cmd === "shot") {
-    const out = arg ?? "device-shot.png";
+    ensureUserDirectories();
+    const out = arg ?? join(screenshotDir, "device-shot.png");
     const r = await send("Page.captureScreenshot", { format: "png" });
     if (!r?.data) die("screenshot returned no data");
     await Bun.write(out, Buffer.from(r.data, "base64"));

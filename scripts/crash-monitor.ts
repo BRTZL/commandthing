@@ -8,12 +8,16 @@
  * baseline (and later, a before/after for any fix).
  *
  * Usage: bun run scripts/crash-monitor.ts [minutes=120] [intervalSec=60]
- * Log:   .commandthing-crashmon.log (also echoed to stdout)
+ * Log:   ~/.config/commandthing/logs/crash-monitor.log (also echoed to stdout)
  */
+
+import { join } from "node:path";
+import { ensureUserDirectories, logDir } from "./paths.ts";
 
 const minutes = Number(process.argv[2] ?? 120);
 const intervalSec = Number(process.argv[3] ?? 60);
-const LOG = `${new URL("..", import.meta.url).pathname}.commandthing-crashmon.log`;
+ensureUserDirectories();
+const LOG = join(logDir, "crash-monitor.log");
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const ts = () => new Date().toISOString().slice(11, 19);

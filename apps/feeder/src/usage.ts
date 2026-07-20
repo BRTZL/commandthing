@@ -7,9 +7,10 @@
  */
 
 import type { UsageProvider, UsageSummary } from "@commandthing/protocol";
+import { config } from "./config.ts";
 
-const USAGE_URL = process.env.OPEN_USAGE_URL?.trim() || "http://localhost:6736/v1/usage";
-const REFRESH_MS = Number(process.env.USAGE_REFRESH_MS ?? 30_000);
+const USAGE_URL = config.openUsage.url;
+const REFRESH_MS = config.openUsage.refreshMs;
 
 let cache: UsageSummary | null = null;
 

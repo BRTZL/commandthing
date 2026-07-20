@@ -14,12 +14,21 @@ const HOOK_EVENTS = [
   "SessionEnd",
 ];
 
+const DEFAULT_CONFIG = {
+  server: { host: "0.0.0.0", port: 4000 },
+  openUsage: { url: "http://localhost:6736/v1/usage", refreshMs: 30_000 },
+  refresh: { sessionsMs: 2000, mediaMs: 1000 },
+};
+
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 
 function locations() {
-  const stateDir = process.env.COMMANDTHING_HOME || join(homedir(), ".commandthing");
+  const stateDir =
+    process.env.COMMANDTHING_HOME ||
+    join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "commandthing");
   return {
     stateDir,
+    configPath: process.env.COMMANDTHING_CONFIG || join(stateDir, "config.json"),
     forwarderPath: join(stateDir, "bin", "commandthing-hook.mjs"),
     settingsPath: process.env.COMMANDTHING_CLAUDE_SETTINGS || join(homedir(), ".claude", "settings.json"),
   };
@@ -65,6 +74,25 @@ async function readSettings(settingsPath) {
   }
 }
 
+async function readUserConfig() {
+  const { configPath } = locations();
+  if (!(await exists(configPath))) await initConfig({ quiet: true });
+  try {
+    return JSON.parse(await readFile(configPath, "utf8"));
+  } catch (error) {
+    throw new Error(`cannot parse ${configPath}; fix its JSON before continuing (${error.message})`);
+  }
+}
+
+async function configuredFeederUrl() {
+  const userConfig = await readUserConfig();
+  const port = Number(userConfig?.server?.port ?? DEFAULT_CONFIG.server.port);
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error("server.port in the CommandThing config must be a positive integer");
+  }
+  return `http://localhost:${port}`;
+}
+
 async function writeSettings(settingsPath, settings, stateDir) {
   await mkdir(dirname(settingsPath), { recursive: true });
   if (await exists(settingsPath)) {
@@ -93,7 +121,8 @@ function validateFeederUrl(value) {
 
 export async function setupHooks({ feederUrl }) {
   const { stateDir, forwarderPath, settingsPath } = locations();
-  const normalizedUrl = validateFeederUrl(feederUrl);
+  await initConfig({ quiet: true });
+  const normalizedUrl = validateFeederUrl(feederUrl || (await configuredFeederUrl()));
   const templatePath = join(packageRoot, "templates", "commandthing-hook.mjs");
   const template = await readFile(templatePath, "utf8");
 
@@ -118,6 +147,28 @@ export async function setupHooks({ feederUrl }) {
   console.log(`Feeder URL: ${normalizedUrl}`);
 }
 
+export async function initConfig({ quiet = false } = {}) {
+  const { configPath, stateDir } = locations();
+  await mkdir(stateDir, { recursive: true });
+  await mkdir(dirname(configPath), { recursive: true });
+  if (!(await exists(configPath))) {
+    await writeFile(configPath, `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`, "utf8");
+    if (!quiet) console.log(`CommandThing config created at ${configPath}`);
+  } else if (!quiet) {
+    console.log(`CommandThing config already exists at ${configPath}`);
+  }
+}
+
+export async function showConfig() {
+  const { configPath } = locations();
+  if (!(await exists(configPath))) await initConfig({ quiet: true });
+  console.log(await readFile(configPath, "utf8"));
+}
+
+export function printConfigPath() {
+  console.log(locations().configPath);
+}
+
 export async function removeHooks() {
   const { forwarderPath, settingsPath, stateDir } = locations();
   if (!(await exists(settingsPath))) {
@@ -140,7 +191,7 @@ export async function forwardHook() {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
   const feederUrl = validateFeederUrl(
-    process.env.COMMANDTHING_FEEDER_URL || process.env.CARTHING_FEEDER || "http://localhost:4000",
+    process.env.COMMANDTHING_FEEDER_URL || process.env.CARTHING_FEEDER || (await configuredFeederUrl()),
   );
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 900);
@@ -164,19 +215,21 @@ function commandVersion(command, args = ["--version"]) {
 }
 
 export async function doctor() {
-  const { forwarderPath, settingsPath } = locations();
+  const { configPath, forwarderPath, settingsPath } = locations();
   const checks = [
     ["Node.js", process.version, true],
     ["Bun", commandVersion("bun"), Boolean(commandVersion("bun"))],
     ["adb", commandVersion("adb", ["version"]), Boolean(commandVersion("adb", ["version"]))],
     ["Claude settings", settingsPath, await exists(settingsPath)],
+    ["CommandThing config", configPath, await exists(configPath)],
     ["CommandThing hooks", forwarderPath, await exists(forwarderPath)],
   ];
+  const feederUrl = await configuredFeederUrl();
   try {
-    const response = await fetch("http://localhost:4000/health", { signal: AbortSignal.timeout(1500) });
-    checks.push(["Feeder", "http://localhost:4000", response.ok]);
+    const response = await fetch(new URL("/health", feederUrl), { signal: AbortSignal.timeout(1500) });
+    checks.push(["Feeder", feederUrl, response.ok]);
   } catch {
-    checks.push(["Feeder", "http://localhost:4000", false]);
+    checks.push(["Feeder", feederUrl, false]);
   }
   for (const [label, detail, ok] of checks) {
     console.log(`${ok ? "✓" : "!"} ${label}${detail ? `: ${detail}` : ""}`);
