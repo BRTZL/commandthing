@@ -30,7 +30,7 @@ Machine settings, runtime files, logs, backups, and screenshots live under `~/.c
 `.env` files are not needed.
 
 Setup installs the self-contained runtime and an offline management CLI, configures Claude Code
-hooks, and starts the background services. Check it at any time with:
+and Codex hooks, and starts the background services. Check it at any time with:
 
 ```bash
 ~/.commandthing/bin/commandthing status
@@ -56,7 +56,8 @@ controller, and diagnostics so installed users need only Node.js.
 - [Documentation index](docs/README.md)
 - [Getting started](docs/getting-started.md)
 - [Configuration and local data](docs/configuration.md)
-- [CLI and Claude hooks](docs/cli.md)
+- [CLI and AI coding hooks](docs/cli.md)
+- [Brand assets](docs/brand-assets.md)
 - [Device setup](docs/device-setup.md)
 - [Architecture](docs/architecture.md)
 - [Development](docs/development.md)

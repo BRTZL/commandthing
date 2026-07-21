@@ -1,7 +1,7 @@
 /**
  * In-memory store of the latest Claude Code hook signal per session.
  *
- * Claude Code hooks deliver a JSON payload (on stdin) that includes
+ * Claude Code and Codex hooks deliver a JSON payload (on stdin) that includes
  * `session_id` and `hook_event_name`. A tiny shell hook forwards that payload
  * to the feeder's POST /hook endpoint; we map the event name to a session
  * state. These signals are authoritative over the file-recency heuristic.
@@ -68,6 +68,8 @@ function mapEvent(
         ? { state: "waiting", needsInput: true }
         : { state: "working", needsInput: false };
     }
+    case "PermissionRequest":
+      return { state: "waiting", needsInput: true };
     case "Stop":
       // Claude finished its turn — your move now, but it isn't blocked on
       // anything. This is "done"/your-turn, NOT a warning.

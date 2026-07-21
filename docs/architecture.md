@@ -3,11 +3,11 @@
 CommandThing separates host integrations from the constrained device renderer.
 
 ```text
-Claude hooks ─┐
-Claude logs  ─┤
-Open Usage   ─┼─> apps/feeder (Node.js, Mac) ── WebSocket ──> apps/dashboard (Car Thing)
-Spotify      ─┘             │
-                            └─ HTTP UI, health, artwork, and debug endpoints
+Claude/Codex hooks ─┐
+Claude logs        ─┤
+Open Usage         ─┼─> apps/feeder (Node.js, Mac) ── WebSocket ──> apps/dashboard (Car Thing)
+Spotify            ─┘             │
+                                  └─ HTTP UI, health, artwork, and debug endpoints
 ```
 
 ## Workspace components
@@ -20,7 +20,7 @@ connection.
 
 ### `apps/feeder`
 
-A Node.js service that runs on the host computer. It watches Claude session transcripts and hook
+A Node.js service that runs on the host computer. It watches Claude session transcripts and AI coding hook
 signals, polls Open Usage, controls Spotify on macOS, serves the dashboard, broadcasts state, and
 answers WebSocket requests.
 

@@ -35,6 +35,7 @@ export function UsagePage() {
         </span>
       </div>
       <div className="dial-scroll grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto [&::-webkit-scrollbar]:w-0">
+        <LimitsOverview providers={usage.providers} />
         {usage.providers.map((p) => (
           <ProviderCard key={p.providerId} p={p} now={now} />
         ))}
@@ -55,6 +56,96 @@ function useServerClock(serverNow?: number): number {
   }, [serverNow]);
 
   return now;
+}
+
+function summaryLines(provider: UsageProvider): UsageLine[] {
+  const progress = provider.lines.filter(
+    (line) =>
+      line.type === "progress" && (line.limit ?? 0) > 0 && !line.label.toLowerCase().includes("extra usage"),
+  );
+  const percentages = progress.filter((line) => line.format?.kind === "percent");
+  return (percentages.length > 0 ? percentages : progress).slice(0, 2);
+}
+
+function remainingLabel(line: UsageLine): string {
+  const used = line.used ?? 0;
+  const limit = line.limit ?? 0;
+  if (limit <= 0) return "—";
+  const remaining = Math.max(0, limit - used);
+  if (line.format?.kind === "percent") return `${Math.round((remaining / limit) * 100)}%`;
+  if (line.format?.kind === "dollars") {
+    return `$${remaining.toFixed(remaining < 10 && remaining % 1 !== 0 ? 1 : 0)}`;
+  }
+  return `${Math.round(remaining)}${line.format?.suffix ? ` ${line.format.suffix}` : ""}`;
+}
+
+function LimitsOverview({ providers }: { providers: UsageProvider[] }) {
+  const summaries: { provider: UsageProvider; lines: UsageLine[] }[] = [];
+  for (const provider of providers) {
+    const lines = summaryLines(provider);
+    if (lines.length > 0) summaries.push({ provider, lines });
+  }
+
+  if (summaries.length === 0) return null;
+
+  return (
+    <Card className="border-primary/25 bg-primary/10 px-3 py-3">
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="text-sm font-semibold uppercase tracking-wide text-foreground">Limits left</span>
+        <span className="text-xs text-muted-foreground">at a glance</span>
+      </div>
+      <div className="flex">
+        {summaries.map(({ provider, lines }, index) => (
+          <div
+            key={provider.providerId}
+            className={cn("flex min-w-0 flex-1 items-center px-2", index > 0 && "border-l border-border")}
+          >
+            <ProviderMark providerId={provider.providerId} name={provider.displayName} />
+            <div className="ml-2 min-w-0">
+              <div className="truncate text-sm font-semibold text-foreground">{provider.displayName}</div>
+              <div className="mt-0.5 flex items-baseline gap-2">
+                {lines.map((line) => (
+                  <div key={line.label} className="min-w-0">
+                    <div className="text-xl font-bold leading-none tabular-nums text-primary">
+                      {remainingLabel(line)}
+                    </div>
+                    <div className="mt-1 truncate text-[10px] uppercase leading-none tracking-wide text-muted-foreground">
+                      {line.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ProviderMark({ providerId, name }: { providerId: string; name: string }) {
+  const iconPath =
+    providerId === "claude"
+      ? "/icons/claude.svg"
+      : providerId === "codex"
+        ? "/icons/openai.svg"
+        : providerId === "opencode"
+          ? "/icons/opencode.svg"
+          : null;
+  if (iconPath) {
+    return <img src={iconPath} alt="" aria-hidden="true" className="h-8 w-8 flex-none opacity-90" />;
+  }
+
+  const initials = name.slice(0, 2);
+  return (
+    <div
+      role="img"
+      aria-label={name}
+      className="flex h-8 w-8 flex-none items-center justify-center rounded-full border border-primary/40 text-[10px] font-bold uppercase text-primary"
+    >
+      {initials.toUpperCase()}
+    </div>
+  );
 }
 
 function ProviderCard({ p, now }: { p: UsageProvider; now: number }) {

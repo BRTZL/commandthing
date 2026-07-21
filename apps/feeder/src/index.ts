@@ -62,7 +62,7 @@ function rebuild(): void {
 }
 
 /** Sample Spotify (+ attach cached lyrics) and broadcast. Runs every MEDIA_MS. */
-async function refreshMedia(): Promise<void> {
+async function sampleMedia(): Promise<void> {
   const np = await getNowPlaying();
   if (np?.trackId) {
     const ly = ensureLyrics(np);
@@ -72,6 +72,20 @@ async function refreshMedia(): Promise<void> {
   nowPlaying = np;
   current = { ...current, nowPlaying };
   broadcast();
+}
+
+// Keep media polling single-flight. AppleScript normally completes quickly, but
+// macOS can stall it behind an Automation prompt or a wedged Spotify process.
+// Overlapping a new poll every second eventually starves the feeder.
+let mediaRefresh: Promise<void> | null = null;
+function refreshMedia(): Promise<void> {
+  if (mediaRefresh) return mediaRefresh;
+  mediaRefresh = sampleMedia()
+    .catch((error) => console.error("[media] refresh failed:", error))
+    .finally(() => {
+      mediaRefresh = null;
+    });
+  return mediaRefresh;
 }
 
 function envelope(): NocturneEvent<DashboardState> {
@@ -283,7 +297,7 @@ await new Promise<void>((resolveListen, reject) => {
 rebuild();
 setInterval(rebuild, POLL_MS);
 refreshMedia();
-setInterval(refreshMedia, MEDIA_MS);
+setInterval(() => void refreshMedia(), MEDIA_MS);
 
 console.log(`[feeder] http://localhost:${PORT}  ws://localhost:${PORT}/ws`);
 console.log(`[feeder] config: ${configPath}${existsSync(configPath) ? "" : " (defaults)"}`);

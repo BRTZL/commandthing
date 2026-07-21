@@ -23,13 +23,22 @@ const events = [
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "commandthing-cli-"));
   const settingsPath = join(root, "claude", "settings.json");
+  const codexHooksPath = join(root, "codex", "hooks.json");
   const stateDir = join(root, "state");
   await mkdir(dirname(settingsPath), { recursive: true });
+  await mkdir(dirname(codexHooksPath), { recursive: true });
   await writeFile(
     settingsPath,
     `${JSON.stringify({ theme: "dark", hooks: { Stop: [{ hooks: [{ type: "command", command: "keep-me" }] }] } })}\n`,
   );
-  return { root, settingsPath, stateDir };
+  await writeFile(
+    codexHooksPath,
+    `${JSON.stringify({
+      description: "personal hooks",
+      hooks: { Stop: [{ hooks: [{ type: "command", command: "keep-codex" }] }] },
+    })}\n`,
+  );
+  return { codexHooksPath, root, settingsPath, stateDir };
 }
 
 function run(args, paths) {
@@ -39,6 +48,7 @@ function run(args, paths) {
       ...process.env,
       COMMANDTHING_HOME: paths.stateDir,
       COMMANDTHING_CLAUDE_SETTINGS: paths.settingsPath,
+      COMMANDTHING_CODEX_HOOKS: paths.codexHooksPath,
     },
   });
 }
@@ -59,12 +69,35 @@ test("hook setup is idempotent and removal preserves unrelated settings", async 
       const commands = installed.hooks[event].flatMap((entry) => entry.hooks.map((hook) => hook.command));
       assert.equal(commands.filter((command) => command.includes("commandthing-hook.mjs")).length, 1);
     }
+    const codex = JSON.parse(await readFile(paths.codexHooksPath, "utf8"));
+    assert.deepEqual(Object.keys(codex.hooks).sort(), [
+      "PermissionRequest",
+      "PostToolUse",
+      "PreToolUse",
+      "SessionStart",
+      "Stop",
+      "UserPromptSubmit",
+    ]);
+    for (const entries of Object.values(codex.hooks)) {
+      const commandThingHooks = entries
+        .flatMap((entry) => entry.hooks)
+        .filter((hook) => hook.command.includes("commandthing-hook.mjs"));
+      assert.equal(commandThingHooks.length, 1);
+      assert.equal(commandThingHooks[0].timeout, 2);
+    }
+    assert.equal(codex.description, "personal hooks");
+    assert.equal(codex.hooks.Stop[0].hooks[0].command, "keep-codex");
     assert.equal(installed.hooks.Stop[0].hooks[0].command, "keep-me");
 
     assert.equal(run(["remove", "hooks"], paths).status, 0);
     const removed = JSON.parse(await readFile(paths.settingsPath, "utf8"));
     assert.equal(removed.theme, "dark");
     assert.deepEqual(removed.hooks, { Stop: [{ hooks: [{ type: "command", command: "keep-me" }] }] });
+    const removedCodex = JSON.parse(await readFile(paths.codexHooksPath, "utf8"));
+    assert.equal(removedCodex.description, "personal hooks");
+    assert.deepEqual(removedCodex.hooks, {
+      Stop: [{ hooks: [{ type: "command", command: "keep-codex" }] }],
+    });
   } finally {
     await rm(paths.root, { recursive: true, force: true });
   }
@@ -124,7 +157,8 @@ test("Claude settings backups are retained only when settings change and are cap
     await writeFile(join(paths.stateDir, "backups", "claude-settings-2000-extra-b.json"), "{}\n");
     assert.equal(run(["setup", "hooks"], paths).status, 0);
     const afterIdempotentRun = await readdir(join(paths.stateDir, "backups"));
-    assert.equal(afterIdempotentRun.length, 5);
+    assert.equal(afterIdempotentRun.filter((name) => name.startsWith("claude-settings-")).length, 5);
+    assert.ok(afterIdempotentRun.filter((name) => name.startsWith("codex-hooks-")).length <= 5);
   } finally {
     await rm(paths.root, { recursive: true, force: true });
   }
@@ -206,6 +240,31 @@ test("service runner rotates logs without dropping child output", async () => {
     const rotatedSize = (await stat(`${log}.1`)).size;
     assert.equal(activeSize + rotatedSize, 6 * 1024 * 1024);
     assert.ok(rotatedSize <= 5 * 1024 * 1024);
+  } finally {
+    await rm(paths.root, { recursive: true, force: true });
+  }
+});
+
+test("service runner restarts an unhealthy child", async () => {
+  const paths = await fixture();
+  try {
+    const tool = join(paths.root, "stuck-service.mjs");
+    const log = join(paths.root, "service.log");
+    await writeFile(tool, "setInterval(() => {}, 1000);\n");
+    const result = spawnSync(process.execPath, [serviceRunnerPath, tool, log, "http://127.0.0.1:1/health"], {
+      encoding: "utf8",
+      timeout: 2000,
+      env: {
+        ...process.env,
+        COMMANDTHING_WATCHDOG_INTERVAL_MS: "20",
+        COMMANDTHING_WATCHDOG_TIMEOUT_MS: "20",
+        COMMANDTHING_WATCHDOG_FAILURES: "2",
+      },
+    });
+    assert.notEqual(result.status, 0, result.stderr);
+    const contents = await readFile(log, "utf8");
+    assert.match(contents, /health check 2\/2 failed/);
+    assert.match(contents, /requesting a launchd restart/);
   } finally {
     await rm(paths.root, { recursive: true, force: true });
   }

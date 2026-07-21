@@ -41,8 +41,24 @@ The launchd agent may already own it:
 
 ## Device is absent from adb
 
-Run `adb devices`, replug the device, and try a USB 2 hub. The reverse rule disappears whenever the
-device or adb server restarts.
+Run `adb devices`. If the list is empty, also check macOS System Information's USB section. A device
+missing from both places is a power, cable, hub, or USB-enumeration problem rather than a dashboard
+problem: power-cycle it, reseat both ends of the data cable, and try a USB 2 hub. The reverse rule
+disappears whenever the device or adb server restarts, but CommandThing recreates it automatically.
+
+## Service says running but the dashboard is unreachable
+
+Check the application-level health endpoint rather than relying only on launchd's process state:
+
+```bash
+curl --max-time 2 http://localhost:4000/health
+~/.commandthing/bin/commandthing status
+~/.commandthing/bin/commandthing restart
+```
+
+The installed feeder has an external health watchdog. After three consecutive failed health checks
+it terminates the unhealthy child so launchd can start a clean process. Spotify polling is also
+single-flight and time-limited so a stalled Apple Event cannot accumulate child processes.
 
 ## Kiosk does not recover after feeder restart
 
@@ -58,7 +74,7 @@ The first command recreates the tunnel; the second forces the kiosk off its conn
 Compare against the production page on port `4000`, not only Vite on `5173`. The device has an older
 renderer and different font metrics. Review the Chromium rules in [Development](development.md).
 
-## Claude sessions never show authoritative state
+## AI coding sessions never show authoritative state
 
 ```bash
 npx commandthing@latest setup hooks
@@ -66,3 +82,4 @@ npx commandthing@latest setup hooks
 ```
 
 Rerunning setup is safe and removes duplicate CommandThing entries.
+For Codex, also open `/hooks` after setup and trust the newly written definitions.

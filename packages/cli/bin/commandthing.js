@@ -62,7 +62,7 @@ function help() {
 
 Usage:
   commandthing setup [--skip-hooks]            Install and start CommandThing
-  commandthing setup hooks [--feeder-url URL]  Install only Claude Code hooks
+  commandthing setup hooks [--feeder-url URL]  Install Claude Code and Codex hooks
   commandthing remove hooks                   Remove CommandThing hooks
   commandthing start                          Start background services
   commandthing stop                           Stop background services

@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { readConfigFileSync, serializeDefaultConfig } from "./config.js";
 import { locations } from "./locations.js";
 
-const HOOK_EVENTS = [
+const CLAUDE_HOOK_EVENTS = [
   "UserPromptSubmit",
   "PreToolUse",
   "PostToolUse",
@@ -23,6 +23,14 @@ const HOOK_EVENTS = [
   "Notification",
   "SessionStart",
   "SessionEnd",
+];
+const CODEX_HOOK_EVENTS = [
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PermissionRequest",
+  "PostToolUse",
+  "Stop",
+  "SessionStart",
 ];
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -67,6 +75,15 @@ async function readSettings(settingsPath) {
   }
 }
 
+async function readCodexHooks(codexHooksPath) {
+  if (!(await exists(codexHooksPath))) return {};
+  try {
+    return JSON.parse(await readFile(codexHooksPath, "utf8"));
+  } catch (error) {
+    throw new Error(`cannot parse ${codexHooksPath}; fix its JSON before running setup (${error.message})`);
+  }
+}
+
 async function readUserConfig() {
   const { configPath } = locations();
   if (!(await exists(configPath))) await initConfig({ quiet: true });
@@ -80,28 +97,36 @@ async function configuredFeederUrl() {
 }
 
 async function writeSettings(settingsPath, settings, homeDir) {
-  await mkdir(dirname(settingsPath), { recursive: true });
-  const output = `${JSON.stringify(settings, null, 2)}\n`;
-  await pruneSettingsBackups(homeDir);
-  if ((await exists(settingsPath)) && (await readFile(settingsPath, "utf8")) === output) return false;
-  if (await exists(settingsPath)) {
+  return writeBackedUpJson(settingsPath, settings, homeDir, "claude-settings");
+}
+
+async function writeCodexHooks(codexHooksPath, hooks, homeDir) {
+  return writeBackedUpJson(codexHooksPath, hooks, homeDir, "codex-hooks");
+}
+
+async function writeBackedUpJson(path, value, homeDir, backupPrefix) {
+  await mkdir(dirname(path), { recursive: true });
+  const output = `${JSON.stringify(value, null, 2)}\n`;
+  await pruneJsonBackups(homeDir, backupPrefix);
+  if ((await exists(path)) && (await readFile(path, "utf8")) === output) return false;
+  if (await exists(path)) {
     const backupDir = join(homeDir, "backups");
     await mkdir(backupDir, { recursive: true });
     const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
-    await copyFile(settingsPath, join(backupDir, `claude-settings-${stamp}.json`));
-    await pruneSettingsBackups(homeDir);
+    await copyFile(path, join(backupDir, `${backupPrefix}-${stamp}.json`));
+    await pruneJsonBackups(homeDir, backupPrefix);
   }
-  const temporaryPath = `${settingsPath}.commandthing.tmp`;
+  const temporaryPath = `${path}.commandthing.tmp`;
   await writeFile(temporaryPath, output, "utf8");
-  await rename(temporaryPath, settingsPath);
+  await rename(temporaryPath, path);
   return true;
 }
 
-async function pruneSettingsBackups(homeDir) {
+async function pruneJsonBackups(homeDir, backupPrefix) {
   const backupDir = join(homeDir, "backups");
   if (!(await exists(backupDir))) return;
   const backups = (await readdir(backupDir))
-    .filter((name) => /^claude-settings-.*\.json$/.test(name))
+    .filter((name) => name.startsWith(`${backupPrefix}-`) && name.endsWith(".json"))
     .sort()
     .reverse();
   await Promise.all(backups.slice(5).map((name) => unlink(join(backupDir, name)).catch(() => {})));
@@ -121,21 +146,32 @@ function validateFeederUrl(value) {
 }
 
 export async function setupHooks({ feederUrl }) {
-  const { homeDir, forwarderPath, settingsPath } = locations();
+  const { codexHooksPath, homeDir, forwarderPath, settingsPath } = locations();
   await initConfig({ quiet: true });
   const normalizedUrl = validateFeederUrl(feederUrl || (await configuredFeederUrl()));
   const templatePath = join(packageRoot, "templates", "commandthing-hook.mjs");
   const template = await readFile(templatePath, "utf8");
   const originalSettings = (await exists(settingsPath)) ? await readFile(settingsPath, "utf8") : null;
+  const originalCodexHooks = (await exists(codexHooksPath)) ? await readFile(codexHooksPath, "utf8") : null;
   const originalForwarder = (await exists(forwarderPath)) ? await readFile(forwarderPath, "utf8") : null;
 
   const settings = await readSettings(settingsPath);
   const hooks = settings.hooks && typeof settings.hooks === "object" ? { ...settings.hooks } : {};
   const command = shellQuote(forwarderPath);
-  for (const event of HOOK_EVENTS) {
+  for (const event of CLAUDE_HOOK_EVENTS) {
     hooks[event] = [...withoutCommandThingHooks(hooks[event]), { hooks: [{ type: "command", command }] }];
   }
   const nextSettings = { ...settings, hooks };
+  const codexConfig = await readCodexHooks(codexHooksPath);
+  const codexHooks =
+    codexConfig.hooks && typeof codexConfig.hooks === "object" ? { ...codexConfig.hooks } : {};
+  for (const event of CODEX_HOOK_EVENTS) {
+    codexHooks[event] = [
+      ...withoutCommandThingHooks(codexHooks[event]),
+      { hooks: [{ type: "command", command, timeout: 2 }] },
+    ];
+  }
+  const nextCodexConfig = { ...codexConfig, hooks: codexHooks };
   const forwarder = template.replace("__COMMANDTHING_FEEDER_URL__", JSON.stringify(normalizedUrl));
   await mkdir(dirname(forwarderPath), { recursive: true });
   const temporaryForwarder = `${forwarderPath}.tmp`;
@@ -144,11 +180,14 @@ export async function setupHooks({ feederUrl }) {
   const rollback = async () => {
     if (originalSettings == null) await unlink(settingsPath).catch(() => {});
     else await writeAtomicText(settingsPath, originalSettings, 0o644);
+    if (originalCodexHooks == null) await unlink(codexHooksPath).catch(() => {});
+    else await writeAtomicText(codexHooksPath, originalCodexHooks, 0o644);
     if (originalForwarder == null) await unlink(forwarderPath).catch(() => {});
     else await writeAtomicText(forwarderPath, originalForwarder, 0o755);
   };
   try {
     await writeSettings(settingsPath, nextSettings, homeDir);
+    await writeCodexHooks(codexHooksPath, nextCodexConfig, homeDir);
     await rename(temporaryForwarder, forwarderPath);
   } catch (error) {
     await rollback();
@@ -156,6 +195,7 @@ export async function setupHooks({ feederUrl }) {
   }
 
   console.log(`CommandThing hooks installed in ${settingsPath}`);
+  console.log(`CommandThing hooks installed in ${codexHooksPath}`);
   console.log(`Hook forwarder: ${forwarderPath}`);
   console.log(`Feeder URL: ${normalizedUrl}`);
   return { rollback };
@@ -192,21 +232,35 @@ export function printConfigPath() {
 }
 
 export async function removeHooks() {
-  const { forwarderPath, settingsPath, homeDir } = locations();
-  if (!(await exists(settingsPath))) {
+  const { codexHooksPath, forwarderPath, settingsPath, homeDir } = locations();
+  if (await exists(settingsPath)) {
+    const settings = await readSettings(settingsPath);
+    const hooks = settings.hooks && typeof settings.hooks === "object" ? { ...settings.hooks } : {};
+    for (const event of Object.keys(hooks)) {
+      const remaining = withoutCommandThingHooks(hooks[event]);
+      if (remaining.length > 0) hooks[event] = remaining;
+      else delete hooks[event];
+    }
+    await writeSettings(settingsPath, { ...settings, hooks }, homeDir);
+    console.log(`CommandThing hooks removed from ${settingsPath}`);
+  } else {
     console.log(`No Claude settings found at ${settingsPath}`);
-    return;
   }
-  const settings = await readSettings(settingsPath);
-  const hooks = settings.hooks && typeof settings.hooks === "object" ? { ...settings.hooks } : {};
-  for (const event of Object.keys(hooks)) {
-    const remaining = withoutCommandThingHooks(hooks[event]);
-    if (remaining.length > 0) hooks[event] = remaining;
-    else delete hooks[event];
+
+  if (await exists(codexHooksPath)) {
+    const config = await readCodexHooks(codexHooksPath);
+    const hooks = config.hooks && typeof config.hooks === "object" ? { ...config.hooks } : {};
+    for (const event of Object.keys(hooks)) {
+      const remaining = withoutCommandThingHooks(hooks[event]);
+      if (remaining.length > 0) hooks[event] = remaining;
+      else delete hooks[event];
+    }
+    await writeCodexHooks(codexHooksPath, { ...config, hooks }, homeDir);
+    console.log(`CommandThing hooks removed from ${codexHooksPath}`);
+  } else {
+    console.log(`No Codex hooks found at ${codexHooksPath}`);
   }
-  await writeSettings(settingsPath, { ...settings, hooks }, homeDir);
   await unlink(forwarderPath).catch(() => {});
-  console.log(`CommandThing hooks removed from ${settingsPath}`);
 }
 
 export async function forwardHook() {
@@ -235,7 +289,8 @@ function commandVersion(command, args = ["--version"]) {
 }
 
 export async function doctor() {
-  const { configPath, forwarderPath, nodeLauncherPath, serviceRunnerPath, settingsPath } = locations();
+  const { codexHooksPath, configPath, forwarderPath, nodeLauncherPath, serviceRunnerPath, settingsPath } =
+    locations();
   const nodeSupported = Number(process.versions.node.split(".")[0]) >= 22;
   let configValid = false;
   let configDetail = configPath;
@@ -249,6 +304,7 @@ export async function doctor() {
     ["Node.js 22+", process.version, nodeSupported],
     ["adb", commandVersion("adb", ["version"]), Boolean(commandVersion("adb", ["version"]))],
     ["Claude settings", settingsPath, await exists(settingsPath)],
+    ["Codex hooks", codexHooksPath, await exists(codexHooksPath)],
     ["CommandThing config", configDetail, configValid],
     ["CommandThing hooks", forwarderPath, await exists(forwarderPath)],
     ["Node launcher", nodeLauncherPath, await exists(nodeLauncherPath)],

@@ -9,6 +9,7 @@ export function locations() {
     cliRoot: join(homeDir, "cli"),
     cliLauncherPath: join(homeDir, "bin", "commandthing"),
     configPath: process.env.COMMANDTHING_CONFIG || join(homeDir, "config.json"),
+    codexHooksPath: process.env.COMMANDTHING_CODEX_HOOKS || join(homedir(), ".codex", "hooks.json"),
     forwarderPath: join(homeDir, "bin", "commandthing-hook.mjs"),
     nodeLauncherPath: join(homeDir, "bin", "commandthing-node.sh"),
     serviceRunnerPath: join(homeDir, "bin", "service-runner.mjs"),

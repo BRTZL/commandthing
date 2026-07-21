@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, renameSync, rmSync, statSync } from "node:fs";
 
-const [, , tool, logPath] = process.argv;
+const [, , tool, logPath, healthUrl] = process.argv;
 if (!tool || !logPath) {
-  console.error("usage: service-runner.mjs <tool> <log-path>");
+  console.error("usage: service-runner.mjs <tool> <log-path> [health-url]");
   process.exit(64);
 }
 
@@ -36,14 +36,61 @@ function write(chunk) {
 if (size >= maxBytes) rotate();
 
 const child = spawn(process.execPath, [tool], { stdio: ["ignore", "pipe", "pipe"] });
+let stopping = false;
+let forceKillTimer;
+let healthTimer;
 child.stdout.on("data", write);
 child.stderr.on("data", write);
 child.on("error", (error) => write(`[service-runner] ${error.stack || error.message}\n`));
 child.on("close", (code, signal) => {
+  if (healthTimer) clearInterval(healthTimer);
+  if (forceKillTimer) clearTimeout(forceKillTimer);
   if (signal) write(`[service-runner] child exited after ${signal}\n`);
   process.exit(code ?? 1);
 });
 
+function positiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function stopChild(signal = "SIGTERM") {
+  if (stopping) return;
+  stopping = true;
+  child.kill(signal);
+  forceKillTimer = setTimeout(() => {
+    if (child.exitCode == null && child.signalCode == null) child.kill("SIGKILL");
+  }, 2000);
+  forceKillTimer.unref();
+}
+
+if (healthUrl) {
+  const intervalMs = positiveInteger(process.env.COMMANDTHING_WATCHDOG_INTERVAL_MS, 5000);
+  const timeoutMs = positiveInteger(process.env.COMMANDTHING_WATCHDOG_TIMEOUT_MS, 2000);
+  const failureLimit = positiveInteger(process.env.COMMANDTHING_WATCHDOG_FAILURES, 3);
+  let failures = 0;
+  let checking = false;
+
+  healthTimer = setInterval(async () => {
+    if (checking || stopping) return;
+    checking = true;
+    try {
+      const response = await fetch(healthUrl, { signal: AbortSignal.timeout(timeoutMs) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      failures = 0;
+    } catch (error) {
+      failures += 1;
+      write(`[service-runner] health check ${failures}/${failureLimit} failed: ${error.message}\n`);
+      if (failures >= failureLimit) {
+        write("[service-runner] service is unresponsive; requesting a launchd restart\n");
+        stopChild();
+      }
+    } finally {
+      checking = false;
+    }
+  }, intervalMs);
+}
+
 for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
-  process.on(signal, () => child.kill(signal));
+  process.on(signal, () => stopChild(signal));
 }

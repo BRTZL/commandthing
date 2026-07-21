@@ -318,6 +318,13 @@ export async function installServices(version) {
     "com.commandthing.feeder": join(staged.destination, "feeder.js"),
     "com.commandthing.tunnel": join(staged.destination, "tunnel.js"),
   };
+  const healthHost =
+    config.server.host === "0.0.0.0"
+      ? "127.0.0.1"
+      : config.server.host.includes(":")
+        ? `[${config.server.host}]`
+        : config.server.host;
+  const feederHealthUrl = `http://${healthHost}:${config.server.port}/health`;
   const temporaryPlists = new Map();
   try {
     for (const label of LABELS) {
@@ -331,6 +338,7 @@ export async function installServices(version) {
         tools[label],
         applicationLog,
       ];
+      if (label === "com.commandthing.feeder") program.push(feederHealthUrl);
       await writeFile(
         temporaryPath,
         launchAgentPlist({

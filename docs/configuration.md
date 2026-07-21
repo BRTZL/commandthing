@@ -7,7 +7,7 @@ location is `~/.commandthing`:
 ~/.commandthing/
   config.json
   bin/          Offline CLI, service launchers, and generated hook forwarder
-  backups/      Up to five recent Claude settings backups
+  backups/      Up to five recent backups for each managed hook file
   cli/          Installed versioned management CLI
   logs/         Rotating feeder, tunnel, and diagnostic logs
   runtime/      Installed versioned feeder, tunnel, and dashboard files

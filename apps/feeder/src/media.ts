@@ -19,7 +19,15 @@ async function osa(...lines: string[]): Promise<string | null> {
   const args: string[] = [];
   for (const l of lines) args.push("-e", l);
   try {
-    const { stdout } = await execFileAsync("osascript", args, { encoding: "utf8" });
+    // Apple Events can occasionally stop answering (for example while macOS is
+    // showing an Automation permission prompt). Without a timeout, the one-second
+    // media poll would keep spawning osascript children until the feeder became
+    // unresponsive.
+    const { stdout } = await execFileAsync("osascript", args, {
+      encoding: "utf8",
+      timeout: 3000,
+      killSignal: "SIGKILL",
+    });
     return stdout.trim();
   } catch {
     return null;
@@ -121,6 +129,7 @@ async function lrclib(path: string): Promise<any> {
   try {
     const r = await fetch(`https://lrclib.net${path}`, {
       headers: { "User-Agent": "commandthing (local Car Thing dashboard)" },
+      signal: AbortSignal.timeout(5000),
     });
     return r.ok ? await r.json() : null;
   } catch {

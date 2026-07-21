@@ -16,7 +16,7 @@ Car Thing.
 npx commandthing@latest setup
 ```
 
-It creates `~/.commandthing`, installs the packaged runtime and Claude hooks, starts the macOS
+It creates `~/.commandthing`, installs the packaged runtime and Claude Code/Codex hooks, starts the macOS
 services, and waits for the dashboard to become healthy. CommandThing does not require a project
 `.env` file. See [Configuration](configuration.md) for ports, Open Usage, logs, and other local data.
 
@@ -47,7 +47,7 @@ pnpm dev
 Open <http://localhost:5173>. Vite serves the UI with hot reload while the feeder remains on port
 `4000`.
 
-## Claude Code hooks
+## Claude Code and Codex hooks
 
 Install CommandThing's hooks safely:
 
@@ -55,8 +55,9 @@ Install CommandThing's hooks safely:
 ~/.commandthing/bin/commandthing setup hooks
 ```
 
-The CLI creates a small stable forwarder under `~/.commandthing`, backs up Claude settings,
-and merges its entries with existing hooks. See [CLI](cli.md) for removal and diagnostics.
+The CLI creates a small stable forwarder under `~/.commandthing`, backs up both tools' hook files,
+and merges its entries with existing hooks. After changing Codex hooks, open `/hooks` in Codex and
+review/trust the new definitions. See [CLI](cli.md) for removal and diagnostics.
 
 ## Next steps
 
