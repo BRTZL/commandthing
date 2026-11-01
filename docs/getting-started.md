@@ -16,7 +16,7 @@ Car Thing.
 npx commandthing@latest setup
 ```
 
-It creates `~/.commandthing`, installs the packaged runtime and Claude Code/Codex hooks, starts the macOS
+It creates `~/.commandthing`, installs the packaged runtime, starts the macOS
 services, and waits for the dashboard to become healthy. CommandThing does not require a project
 `.env` file. See [Configuration](configuration.md) for ports, Open Usage, logs, and other local data.
 
@@ -47,17 +47,10 @@ pnpm dev
 Open <http://localhost:5173>. Vite serves the UI with hot reload while the feeder remains on port
 `4000`.
 
-## Claude Code and Codex hooks
+## T3 Code sessions
 
-Install CommandThing's hooks safely:
-
-```bash
-~/.commandthing/bin/commandthing setup hooks
-```
-
-The CLI creates a small stable forwarder under `~/.commandthing`, backs up both tools' hook files,
-and merges its entries with existing hooks. After changing Codex hooks, open `/hooks` in Codex and
-review/trust the new definitions. See [CLI](cli.md) for removal and diagnostics.
+The board shows active T3 Code threads by reading T3's database read-only, so T3 Code must be running
+on the same Mac. No hooks are needed. See [Troubleshooting](troubleshooting.md) if the board reports a problem.
 
 ## Next steps
 

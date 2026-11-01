@@ -74,12 +74,23 @@ The first command recreates the tunnel; the second forces the kiosk off its conn
 Compare against the production page on port `4000`, not only Vite on `5173`. The device has an older
 renderer and different font metrics. Review the Chromium rules in [Development](development.md).
 
-## AI coding sessions never show authoritative state
+## Board says T3 Code is not running or reports a T3 database error
+
+The board reads `~/.t3/userdata/statev2.sqlite`. Start T3 Code, then check:
 
 ```bash
-npx commandthing@latest setup hooks
 ~/.commandthing/bin/commandthing doctor
+curl http://localhost:4000/state
 ```
 
-Rerunning setup is safe and removes duplicate CommandThing entries.
-For Codex, also open `/hooks` after setup and trust the newly written definitions.
+A `T3 database:` error after a T3 update means its tables changed; update `apps/feeder/src/t3Sessions.ts`.
+
+## Device shows the Spotify "Welcome to Car Thing" screen
+
+The kiosk is on its stock web app. Point it at the dashboard:
+
+```bash
+adb shell 'grep -c "app=http://localhost:4000" /etc/supervisord.conf'
+```
+
+If that prints `0`, follow "Configure the kiosk" in [Device setup](device-setup.md).

@@ -17,6 +17,7 @@ export function locations() {
     logsDir: join(homeDir, "logs"),
     runtimeRoot: join(homeDir, "runtime"),
     screenshotsDir: join(homeDir, "screenshots"),
+    t3DatabasePath: process.env.COMMANDTHING_T3_DB || join(homedir(), ".t3", "userdata", "statev2.sqlite"),
     settingsPath: process.env.COMMANDTHING_CLAUDE_SETTINGS || join(homedir(), ".claude", "settings.json"),
   };
 }

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { client } from "../client";
 import {
-  type ClaudeSession,
+  type AgentSession,
   type DashboardState,
   emptyState,
   type NowPlaying,
@@ -55,11 +55,19 @@ export function getDashboardState(): DashboardState {
   return snapshot.state;
 }
 
-export function useSessions(): ClaudeSession[] {
+export function useSessions(): AgentSession[] {
   return useSyncExternalStore(
     subscribeDashboardStore,
     () => snapshot.state.sessions,
     () => snapshot.state.sessions,
+  );
+}
+
+export function useSessionsError(): string | null {
+  return useSyncExternalStore(
+    subscribeDashboardStore,
+    () => snapshot.state.sessionsError,
+    () => snapshot.state.sessionsError,
   );
 }
 
@@ -112,6 +120,7 @@ function reconcileDashboardState(prev: DashboardState, next: DashboardState): Da
     prev.generatedAt === next.generatedAt &&
     prev.host === next.host &&
     Object.is(prev.sessions, sessions) &&
+    prev.sessionsError === next.sessionsError &&
     Object.is(prev.usage, usage) &&
     Object.is(prev.nowPlaying, nowPlaying)
   ) {
@@ -122,12 +131,13 @@ function reconcileDashboardState(prev: DashboardState, next: DashboardState): Da
     generatedAt: next.generatedAt,
     host: next.host,
     sessions,
+    sessionsError: next.sessionsError,
     usage,
     nowPlaying,
   };
 }
 
-function sameSessions(a: ClaudeSession[], b: ClaudeSession[]): boolean {
+function sameSessions(a: AgentSession[], b: AgentSession[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     if (!sameSession(a[i], b[i])) return false;
@@ -135,7 +145,7 @@ function sameSessions(a: ClaudeSession[], b: ClaudeSession[]): boolean {
   return true;
 }
 
-function sameSession(a: ClaudeSession, b: ClaudeSession): boolean {
+function sameSession(a: AgentSession, b: AgentSession): boolean {
   return (
     a.id === b.id &&
     a.project === b.project &&
@@ -145,11 +155,11 @@ function sameSession(a: ClaudeSession, b: ClaudeSession): boolean {
     a.gitBranch === b.gitBranch &&
     a.lastActivity === b.lastActivity &&
     a.state === b.state &&
+    a.statusLabel === b.statusLabel &&
     a.needsInput === b.needsInput &&
     a.lastPrompt === b.lastPrompt &&
     a.permissionMode === b.permissionMode &&
-    a.subagentCount === b.subagentCount &&
-    a.stateSource === b.stateSource
+    a.subagentCount === b.subagentCount
   );
 }
 

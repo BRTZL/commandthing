@@ -15,7 +15,7 @@ npx commandthing@latest --help
 
 Use `npx commandthing@latest setup` for installation and updates. Setup also installs
 `~/.commandthing/bin/commandthing` for operational commands that must work without registry or
-network access. Automated hooks use their own stable local forwarder.
+network access. 
 
 ## Set up CommandThing
 
@@ -24,9 +24,8 @@ npx commandthing@latest setup
 ```
 
 Setup validates the shared configuration, stages the versioned runtime, lint-checks both macOS
-LaunchAgents, starts them, installs Claude Code and Codex hooks, and waits for the feeder health check. It commits
-only after every step succeeds; otherwise it restores the prior runtime and service state. Pass
-`--skip-hooks` when AI coding integration is not wanted.
+LaunchAgents, starts them, and waits for the feeder health check. It commits
+only after every step succeeds; otherwise it restores the prior runtime and service state.
 
 After setup, manage the installation with:
 
@@ -57,38 +56,14 @@ services always use the same runtime version.
 Advanced maintainer operations are grouped under `commandthing diagnostics`; see
 [Development](development.md) for the available commands.
 
-## Install only AI coding hooks
-
-```bash
-~/.commandthing/bin/commandthing setup hooks
-```
-
-Hook setup reads the feeder port from `~/.commandthing/config.json`. Use an explicit remote
-address only when necessary:
-
-```bash
-~/.commandthing/bin/commandthing setup hooks --feeder-url http://localhost:4000
-```
-
-Setup performs the following operations:
-
-1. Validates the feeder URL.
-2. Writes `~/.commandthing/bin/commandthing-hook.mjs`.
-3. Backs up changed Claude and Codex hook files under `~/.commandthing/backups/`, retaining the latest five of each.
-4. Atomically merges CommandThing into supported events in `~/.claude/settings.json` and `~/.codex/hooks.json`.
-5. Removes older CommandThing hook entries so rerunning setup is idempotent.
-
-Unrelated settings and hooks are preserved. Codex asks you to review exact hook definitions before
-trusting them. After setup changes Codex hooks, open `/hooks` in Codex and approve the new entries.
-
-## Remove AI coding hooks
+## Remove hooks left by older versions
 
 ```bash
 ~/.commandthing/bin/commandthing remove hooks
 ```
 
 This removes only hook commands recognized as CommandThing hooks from both tools and deletes the
-generated forwarder. Backups are created before changed files are written.
+generated forwarder. Setup does this automatically. Backups are created before changed files are written.
 
 ## Diagnose the host
 
@@ -96,7 +71,7 @@ generated forwarder. Backups are created before changed files are written.
 ~/.commandthing/bin/commandthing doctor
 ```
 
-Doctor reports Node.js, adb, Claude settings, Codex hooks, the installed forwarder, and feeder health. Missing `adb`
+Doctor reports Node.js, adb, the T3 Code database, and feeder health. Missing `adb`
 is expected when using browser preview without physical hardware.
 
 ## Manage configuration
@@ -108,16 +83,6 @@ is expected when using browser preview without physical hardware.
 ```
 
 See [Configuration](configuration.md) for the schema and generated-file locations.
-
-## Forward one hook manually
-
-```bash
-printf '%s' '{"session_id":"test","hook_event_name":"SessionStart"}' \
-  | ~/.commandthing/bin/commandthing hook
-```
-
-The hook command intentionally exits successfully when the feeder is stopped so it can never block
-Claude Code or Codex.
 
 ## Test overrides
 

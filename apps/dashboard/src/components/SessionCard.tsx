@@ -1,4 +1,4 @@
-import type { ClaudeSession } from "../dashboardTypes";
+import type { AgentSession } from "../dashboardTypes";
 import { relativeTime, shortModel } from "../format";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -9,7 +9,7 @@ export function SessionCard({
   selected,
   onClick,
 }: {
-  session: ClaudeSession;
+  session: AgentSession;
   now: number;
   selected?: boolean;
   onClick?: () => void;
@@ -48,7 +48,7 @@ export function SessionCard({
         </div>
         <div className="mt-2.5 flex items-center text-sm text-muted-foreground">
           <span className="mr-2 h-2 w-2 rounded-full bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting" />
-          <span className="capitalize">{session.state}</span>
+          <span>{session.statusLabel}</span>
           <span className="mx-2 opacity-50">·</span>
           <span>{relativeTime(session.lastActivity, now)}</span>
           {model && (

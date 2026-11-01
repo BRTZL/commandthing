@@ -2,15 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import {
-  doctor,
-  forwardHook,
-  initConfig,
-  printConfigPath,
-  removeHooks,
-  setupHooks,
-  showConfig,
-} from "../src/commands.js";
+import { doctor, initConfig, printConfigPath, removeHooks, showConfig } from "../src/commands.js";
 import {
   followLogs,
   installServices,
@@ -61,9 +53,8 @@ function help() {
   console.log(`CommandThing ${packageJson.version}
 
 Usage:
-  commandthing setup [--skip-hooks]            Install and start CommandThing
-  commandthing setup hooks [--feeder-url URL]  Install Claude Code and Codex hooks
-  commandthing remove hooks                   Remove CommandThing hooks
+  commandthing setup                          Install and start CommandThing
+  commandthing remove hooks                   Remove hooks left by older versions
   commandthing start                          Start background services
   commandthing stop                           Stop background services
   commandthing restart                        Restart background services
@@ -75,7 +66,6 @@ Usage:
   commandthing config init                    Create the user config file
   commandthing config show                    Print the user config
   commandthing config path                    Print the config file location
-  commandthing hook                           Forward one hook payload from stdin
   commandthing doctor                         Check local requirements
   commandthing --version                      Print the CLI version
   commandthing --help                         Show this help
@@ -97,35 +87,20 @@ async function main() {
     return;
   }
   if (command === "setup") {
-    const hooksOnly = rest[0] === "hooks";
-    const parsed = parseOptions(hooksOnly ? rest.slice(1) : rest, {
-      "--feeder-url": "value",
-      ...(hooksOnly ? {} : { "--skip-hooks": "boolean" }),
-    });
-    if (parsed.positionals.length > 0) {
-      throw new Error(`unknown setup target: ${parsed.positionals.join(" ")}`);
-    }
-    if (hooksOnly) {
-      await setupHooks({ feederUrl: parsed.options["--feeder-url"] });
-      return;
-    }
+    requireNoArguments("setup", rest);
     await initConfig({ quiet: true });
     const installation = await installServices(packageJson.version);
-    let hookInstallation;
     try {
-      if (!parsed.options["--skip-hooks"]) {
-        hookInstallation = await setupHooks({ feederUrl: parsed.options["--feeder-url"] });
-      }
       const feederUrl = await waitForHealthyFeeder();
       await installation.commit();
       console.log(`CommandThing ${packageJson.version} is ready`);
       console.log(`Runtime: ${installation.runtimeDir}`);
       console.log(`Dashboard: ${feederUrl}`);
     } catch (error) {
-      await hookInstallation?.rollback();
       await installation.rollback();
       throw error;
     }
+    await removeHooks();
     return;
   }
   if (command === "remove" && rest[0] === "hooks") {
@@ -193,11 +168,6 @@ async function main() {
     await removeHooks();
     if (parsed.options["--purge"]) await purgeHome();
     else console.log("Config, logs, screenshots, and backups were kept; use --purge to remove them");
-    return;
-  }
-  if (command === "hook") {
-    requireNoArguments(command, rest);
-    await forwardHook();
     return;
   }
   if (command === "doctor") {

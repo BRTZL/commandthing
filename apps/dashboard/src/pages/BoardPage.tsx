@@ -1,12 +1,13 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { SessionCard } from "../components/SessionCard";
 import { openSession } from "../router";
-import { useConnected, useSessions } from "../store/dashboardStore";
+import { useConnected, useSessions, useSessionsError } from "../store/dashboardStore";
 import { clampSelectedSession, setSelectedSessionIndex, useSelectedSessionIndex } from "../store/uiStore";
 
 export function BoardPage() {
   const sessions = useSessions();
   const connected = useConnected();
+  const sessionsError = useSessionsError();
   const now = useNowTick();
   const selected = useSelectedSessionIndex();
   const listRef = useRef<HTMLDivElement>(null);
@@ -41,7 +42,7 @@ export function BoardPage() {
       >
         {sessions.length === 0 && (
           <div className="px-3 py-24 text-center text-lg font-medium text-muted-foreground">
-            {connected ? "No active sessions" : "Connecting…"}
+            {!connected ? "Connecting…" : (sessionsError ?? "No active threads in T3 Code")}
           </div>
         )}
         {sessions.map((s, i) => (

@@ -8,7 +8,7 @@ music controls, and focus tools.
 
 ## Features
 
-- Live Claude Code session states, prompts, tools, and todos
+- Live T3 Code threads with their status, prompts, tools, and todos
 - Claude, Codex, and OpenCode usage summaries with reset countdowns
 - Spotify now-playing, playback controls, volume, artwork, and synchronized lyrics
 - Focus timer and hardware-button navigation
@@ -29,8 +29,8 @@ Open <http://localhost:4000>. The Usage page also expects the optional Open Usag
 Machine settings, runtime files, logs, backups, and screenshots live under `~/.commandthing`; project
 `.env` files are not needed.
 
-Setup installs the self-contained runtime and an offline management CLI, configures Claude Code
-and Codex hooks, and starts the background services. Check it at any time with:
+Setup installs the self-contained runtime and an offline management CLI, and starts the
+background services. Sessions come from a running [T3 Code](https://t3.codes) on the same Mac. Check it at any time with:
 
 ```bash
 ~/.commandthing/bin/commandthing status
@@ -66,7 +66,7 @@ controller, and diagnostics so installed users need only Node.js.
 
 ## Important security note
 
-The feeder binds to `127.0.0.1` by default because its session, usage, hook, and media endpoints do
+The feeder binds to `127.0.0.1` by default because its session, usage, and media endpoints do
 not use application-level authentication. The device reaches that loopback service through USB/ADB.
 Treat LAN binding as an explicit advanced configuration; see [Security](SECURITY.md).
 

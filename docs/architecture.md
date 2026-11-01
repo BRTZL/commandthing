@@ -3,8 +3,7 @@
 CommandThing separates host integrations from the constrained device renderer.
 
 ```text
-Claude/Codex hooks ─┐
-Claude logs        ─┤
+T3 Code database   ─┐
 Open Usage         ─┼─> apps/feeder (Node.js, Mac) ── WebSocket ──> apps/dashboard (Car Thing)
 Spotify            ─┘             │
                                   └─ HTTP UI, health, artwork, and debug endpoints
@@ -20,8 +19,8 @@ connection.
 
 ### `apps/feeder`
 
-A Node.js service that runs on the host computer. It watches Claude session transcripts and AI coding hook
-signals, polls Open Usage, controls Spotify on macOS, serves the dashboard, broadcasts state, and
+A Node.js service that runs on the host computer. It reads active threads from T3 Code's SQLite database
+read-only, polls Open Usage, controls Spotify on macOS, serves the dashboard, broadcasts state, and
 answers WebSocket requests.
 
 ### `packages/protocol`
@@ -32,7 +31,7 @@ protocol, preventing accidental resolution to a registry package during developm
 ### `packages/cli`
 
 The npm distribution entry point. It packages the feeder, tunnel, device controller, and legacy
-dashboard; installs them into a versioned application runtime; and manages hooks, launchd, logs,
+dashboard; installs them into a versioned application runtime; and manages launchd, logs,
 and diagnostics. The CLI owns the shared machine-configuration schema consumed by the bundled
 feeder, preventing installer/runtime default drift.
 
@@ -59,7 +58,7 @@ feeder. The runtime `?ws=` query parameter remains available for diagnostics.
 
 | Port | Owner | Purpose |
 |---|---|---|
-| `4000` | Feeder | UI, WebSocket, hooks, and APIs |
+| `4000` | Feeder | UI, WebSocket, and APIs |
 | `5173` | Vite | Development-only UI with hot reload |
 | `6736` | Open Usage | Optional provider usage source |
 | `2222` | Device tooling | Forwarded Chromium DevTools endpoint |
@@ -81,7 +80,7 @@ authentication and can expose session titles, prompts, usage, and media state, s
 explicit opt-in and must not be used on an untrusted network.
 
 Service upgrades are staged. The CLI validates config and launchd plists, preserves the current
-runtime and agents, boots the new version, waits for health, and commits only after hook setup also
-succeeds. Failure restores the previous runtime and running services. Launchd calls a stable shell
+runtime and agents, boots the new version, waits for health, and commits only after the feeder is
+healthy. Failure restores the previous runtime and running services. Launchd calls a stable shell
 launcher that can find another supported Node 22+ installation if the originally used Node binary
 is removed.

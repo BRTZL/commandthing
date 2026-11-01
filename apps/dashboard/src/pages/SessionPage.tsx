@@ -71,7 +71,7 @@ export function SessionPage({ id }: { id: string }) {
             data-state={detail.state}
             className="rounded-full bg-idle px-3 py-1 text-sm uppercase tracking-wide data-[state=waiting]:bg-waiting data-[state=working]:bg-working data-[state=done]:bg-done"
           >
-            {detail.needsInput ? "needs you" : detail.state === "done" ? "your turn" : detail.state}
+            {detail.statusLabel}
           </Badge>
         </div>
         {detail.title && <div className="mt-1 text-base text-muted-foreground">{detail.title}</div>}
@@ -168,7 +168,7 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
     );
   }
 
-  const who = it.kind === "prompt" ? "You" : it.kind === "thinking" ? "Thinking" : "Claude";
+  const who = it.title;
   return (
     <div className={TI}>
       <div className="flex items-center">

@@ -1,39 +1,8 @@
 import { spawnSync } from "node:child_process";
-import {
-  access,
-  chmod,
-  copyFile,
-  mkdir,
-  readdir,
-  readFile,
-  rename,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { access, copyFile, mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { readConfigFileSync, serializeDefaultConfig } from "./config.js";
 import { locations } from "./locations.js";
-
-const CLAUDE_HOOK_EVENTS = [
-  "UserPromptSubmit",
-  "PreToolUse",
-  "PostToolUse",
-  "Stop",
-  "Notification",
-  "SessionStart",
-  "SessionEnd",
-];
-const CODEX_HOOK_EVENTS = [
-  "UserPromptSubmit",
-  "PreToolUse",
-  "PermissionRequest",
-  "PostToolUse",
-  "Stop",
-  "SessionStart",
-];
-
-const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 
 async function exists(path) {
   try {
@@ -42,10 +11,6 @@ async function exists(path) {
   } catch {
     return false;
   }
-}
-
-function shellQuote(value) {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function isCommandThingHook(hook) {
@@ -132,82 +97,6 @@ async function pruneJsonBackups(homeDir, backupPrefix) {
   await Promise.all(backups.slice(5).map((name) => unlink(join(backupDir, name)).catch(() => {})));
 }
 
-function validateFeederUrl(value) {
-  let url;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error(`invalid feeder URL: ${value}`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("the feeder URL must use http or https");
-  }
-  return url.origin;
-}
-
-export async function setupHooks({ feederUrl }) {
-  const { codexHooksPath, homeDir, forwarderPath, settingsPath } = locations();
-  await initConfig({ quiet: true });
-  const normalizedUrl = validateFeederUrl(feederUrl || (await configuredFeederUrl()));
-  const templatePath = join(packageRoot, "templates", "commandthing-hook.mjs");
-  const template = await readFile(templatePath, "utf8");
-  const originalSettings = (await exists(settingsPath)) ? await readFile(settingsPath, "utf8") : null;
-  const originalCodexHooks = (await exists(codexHooksPath)) ? await readFile(codexHooksPath, "utf8") : null;
-  const originalForwarder = (await exists(forwarderPath)) ? await readFile(forwarderPath, "utf8") : null;
-
-  const settings = await readSettings(settingsPath);
-  const hooks = settings.hooks && typeof settings.hooks === "object" ? { ...settings.hooks } : {};
-  const command = shellQuote(forwarderPath);
-  for (const event of CLAUDE_HOOK_EVENTS) {
-    hooks[event] = [...withoutCommandThingHooks(hooks[event]), { hooks: [{ type: "command", command }] }];
-  }
-  const nextSettings = { ...settings, hooks };
-  const codexConfig = await readCodexHooks(codexHooksPath);
-  const codexHooks =
-    codexConfig.hooks && typeof codexConfig.hooks === "object" ? { ...codexConfig.hooks } : {};
-  for (const event of CODEX_HOOK_EVENTS) {
-    codexHooks[event] = [
-      ...withoutCommandThingHooks(codexHooks[event]),
-      { hooks: [{ type: "command", command, timeout: 2 }] },
-    ];
-  }
-  const nextCodexConfig = { ...codexConfig, hooks: codexHooks };
-  const forwarder = template.replace("__COMMANDTHING_FEEDER_URL__", JSON.stringify(normalizedUrl));
-  await mkdir(dirname(forwarderPath), { recursive: true });
-  const temporaryForwarder = `${forwarderPath}.tmp`;
-  await writeFile(temporaryForwarder, forwarder, "utf8");
-  await chmod(temporaryForwarder, 0o755);
-  const rollback = async () => {
-    if (originalSettings == null) await unlink(settingsPath).catch(() => {});
-    else await writeAtomicText(settingsPath, originalSettings, 0o644);
-    if (originalCodexHooks == null) await unlink(codexHooksPath).catch(() => {});
-    else await writeAtomicText(codexHooksPath, originalCodexHooks, 0o644);
-    if (originalForwarder == null) await unlink(forwarderPath).catch(() => {});
-    else await writeAtomicText(forwarderPath, originalForwarder, 0o755);
-  };
-  try {
-    await writeSettings(settingsPath, nextSettings, homeDir);
-    await writeCodexHooks(codexHooksPath, nextCodexConfig, homeDir);
-    await rename(temporaryForwarder, forwarderPath);
-  } catch (error) {
-    await rollback();
-    throw error;
-  }
-
-  console.log(`CommandThing hooks installed in ${settingsPath}`);
-  console.log(`CommandThing hooks installed in ${codexHooksPath}`);
-  console.log(`Hook forwarder: ${forwarderPath}`);
-  console.log(`Feeder URL: ${normalizedUrl}`);
-  return { rollback };
-}
-
-async function writeAtomicText(path, contents, mode) {
-  const temporary = `${path}.tmp`;
-  await writeFile(temporary, contents, "utf8");
-  await chmod(temporary, mode);
-  await rename(temporary, path);
-}
-
 export async function initConfig({ quiet = false } = {}) {
   const { configPath, homeDir } = locations();
   await mkdir(homeDir, { recursive: true });
@@ -263,34 +152,13 @@ export async function removeHooks() {
   await unlink(forwarderPath).catch(() => {});
 }
 
-export async function forwardHook() {
-  const chunks = [];
-  for await (const chunk of process.stdin) chunks.push(chunk);
-  const feederUrl = validateFeederUrl(process.env.COMMANDTHING_FEEDER_URL || (await configuredFeederUrl()));
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 900);
-  try {
-    await fetch(new URL("/hook", feederUrl), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: Buffer.concat(chunks),
-      signal: controller.signal,
-    });
-  } catch {
-    // Hooks must never block Claude Code if CommandThing is not running.
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 function commandVersion(command, args = ["--version"]) {
   const result = spawnSync(command, args, { encoding: "utf8" });
   return result.status === 0 ? result.stdout.trim().split("\n")[0] : null;
 }
 
 export async function doctor() {
-  const { codexHooksPath, configPath, forwarderPath, nodeLauncherPath, serviceRunnerPath, settingsPath } =
-    locations();
+  const { configPath, nodeLauncherPath, serviceRunnerPath, t3DatabasePath } = locations();
   const nodeSupported = Number(process.versions.node.split(".")[0]) >= 22;
   let configValid = false;
   let configDetail = configPath;
@@ -303,10 +171,8 @@ export async function doctor() {
   const checks = [
     ["Node.js 22+", process.version, nodeSupported],
     ["adb", commandVersion("adb", ["version"]), Boolean(commandVersion("adb", ["version"]))],
-    ["Claude settings", settingsPath, await exists(settingsPath)],
-    ["Codex hooks", codexHooksPath, await exists(codexHooksPath)],
+    ["T3 Code database", t3DatabasePath, await exists(t3DatabasePath)],
     ["CommandThing config", configDetail, configValid],
-    ["CommandThing hooks", forwarderPath, await exists(forwarderPath)],
     ["Node launcher", nodeLauncherPath, await exists(nodeLauncherPath)],
     ["Service runner", serviceRunnerPath, await exists(serviceRunnerPath)],
   ];

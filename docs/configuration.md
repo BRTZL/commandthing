@@ -6,8 +6,8 @@ location is `~/.commandthing`:
 ```text
 ~/.commandthing/
   config.json
-  bin/          Offline CLI, service launchers, and generated hook forwarder
-  backups/      Up to five recent backups for each managed hook file
+  bin/          Offline CLI, and service launchers
+  backups/      Backups of hook files changed during legacy hook removal
   cli/          Installed versioned management CLI
   logs/         Rotating feeder, tunnel, and diagnostic logs
   runtime/      Installed versioned feeder, tunnel, and dashboard files

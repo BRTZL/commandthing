@@ -19,45 +19,43 @@ export interface NocturneEvent<T = unknown> {
 
 export type SessionState = "working" | "waiting" | "done" | "idle";
 
-export interface ClaudeSession {
-  /** Session UUID (the transcript filename, minus .jsonl). */
+/** One T3 Code thread as shown on the board. */
+export interface AgentSession {
+  /** T3 thread id. */
   id: string;
-  /** Short display name — basename of the project working dir. */
+  /** T3 project title. */
   project: string;
-  /** Full working directory of the session. */
+  /** Project workspace root. */
   projectPath: string;
-  /** AI-generated session title, if Claude produced one yet. */
   title: string | null;
-  /** Model id from the latest assistant turn (e.g. claude-opus-4-8). */
+  /** Selected model id (e.g. claude-opus-5-5). */
   model: string | null;
   gitBranch: string | null;
   /** Epoch ms of the most recent activity (max of file mtime and last event). */
   lastActivity: number;
   /**
-   * working  = streaming right now (very recent write / UserPromptSubmit hook)
-   * waiting  = blocked on you with a question/permission (always needsInput)
-   * done     = finished its turn — your move, but not blocked on anything
-   * idle     = quiet for a while
+   * working  = a run is active
+   * waiting  = blocked on you (always needsInput)
+   * done     = finished and not yet seen in T3
+   * idle     = nothing to do
    */
   state: SessionState;
-  /**
-   * True only when Claude is actually blocked on you — a question (e.g.
-   * AskUserQuestion) or a permission prompt — and cannot continue without an
-   * answer. A finished turn ("done") is NOT needsInput; it's just your move.
-   */
+  /** T3's own status wording, e.g. "Pending Approval" or "Working". */
+  statusLabel: string;
+  /** True only when the agent cannot continue without an answer or approval. */
   needsInput: boolean;
   lastPrompt: string | null;
   permissionMode: string | null;
-  /** Number of subagent transcripts nested under this session. */
+  /** Subagents currently running under this thread. */
   subagentCount: number;
-  /** "file" (recency heuristic) or "hook" (authoritative). */
-  stateSource: "file" | "hook";
 }
 
 export interface DashboardState {
   generatedAt: number;
   host: string;
-  sessions: ClaudeSession[];
+  sessions: AgentSession[];
+  /** Why sessions could not be read from T3 Code, if so. */
+  sessionsError: string | null;
   /** AI spend/usage across providers (from the local Open Usage API). */
   usage: UsageSummary | null;
   /** Spotify now-playing on the Mac, if available. */
@@ -69,6 +67,7 @@ export function emptyState(host = "unknown"): DashboardState {
     generatedAt: 0,
     host,
     sessions: [],
+    sessionsError: null,
     usage: null,
     nowPlaying: null,
   };
@@ -183,6 +182,7 @@ export interface SessionDetail {
   gitBranch: string | null;
   model: string | null;
   state: SessionState;
+  statusLabel: string;
   needsInput: boolean;
   messageCount: number;
   toolCounts: Record<string, number>;

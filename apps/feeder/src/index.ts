@@ -2,7 +2,7 @@
  * Mac-side feeder service.
  *
  * Responsibilities:
- *  - Watch ~/.claude for live sessions (claudeWatcher) + accept hook signals.
+ *  - Read active threads and their status from T3 Code (t3Sessions).
  *  - Poll the local Open Usage API for AI spend.
  *  - Broadcast a DashboardState over a WebSocket using nocturned's event
  *    envelope, so the same dashboard works here and on the Car Thing.
@@ -26,12 +26,10 @@ import {
   WS_TOPIC,
 } from "@commandthing/protocol";
 import WebSocket, { WebSocketServer } from "ws";
-import { buildSessions } from "./claudeWatcher.ts";
 import { config, configPath } from "./config.ts";
-import { HookStore } from "./hooks.ts";
-import { BufferCache, HttpError, parseArtworkUrl, readJsonBody, websocketOriginAllowed } from "./http.ts";
+import { BufferCache, HttpError, parseArtworkUrl, websocketOriginAllowed } from "./http.ts";
 import { ensureLyrics, getNowPlaying, mediaControl } from "./media.ts";
-import { getSessionDetail } from "./sessionDetail.ts";
+import { T3Source } from "./t3Sessions.ts";
 import { getUsage } from "./usage.ts";
 
 const { port: PORT, host: HOST } = config.server;
@@ -42,7 +40,7 @@ const DIST_DIR = existsSync(join(packagedDist, "index.html"))
   ? packagedDist
   : join(moduleDir, "..", "..", "dashboard", "dist");
 
-const hooks = new HookStore();
+const t3 = new T3Source();
 const clients = new Set<WebSocket>();
 let current: DashboardState = emptyState(hostname());
 let nowPlaying: NowPlaying | null = null;
@@ -50,10 +48,12 @@ const artCache = new BufferCache(20 * 1024 * 1024); // bounded proxied Spotify a
 
 function rebuild(): void {
   const now = Date.now();
+  const { sessions, error: sessionsError } = t3.snapshot(now);
   const next: DashboardState = {
     generatedAt: now,
     host: hostname(),
-    sessions: buildSessions(hooks, now),
+    sessions,
+    sessionsError,
     usage: getUsage(),
     nowPlaying,
   };
@@ -111,7 +111,7 @@ async function handleRequest(
 ): Promise<void> {
   try {
     if (msg.method === "session.detail") {
-      const detail = getSessionDetail(String(msg.params?.id ?? ""), hooks);
+      const detail = t3.detail(String(msg.params?.id ?? ""));
       if (!detail) {
         ws.send(JSON.stringify({ type: "error", id: msg.id, error: "session not found" }));
         return;
@@ -225,20 +225,12 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
     }
     if (url.pathname.startsWith("/api/session/")) {
       const id = decodeURIComponent(url.pathname.slice("/api/session/".length));
-      const detail = getSessionDetail(id, hooks);
+      const detail = t3.detail(id);
       if (!detail) {
         send(res, 404, "session not found");
         return;
       }
       json(res, detail);
-      return;
-    }
-
-    if (url.pathname === "/hook" && req.method === "POST") {
-      const body = await readJsonBody(req);
-      const changed = hooks.ingest(body);
-      if (changed) rebuild();
-      json(res, { ok: changed });
       return;
     }
 
@@ -301,5 +293,4 @@ setInterval(() => void refreshMedia(), MEDIA_MS);
 
 console.log(`[feeder] http://localhost:${PORT}  ws://localhost:${PORT}/ws`);
 console.log(`[feeder] config: ${configPath}${existsSync(configPath) ? "" : " (defaults)"}`);
-console.log(`[feeder] polling ~/.claude every ${POLL_MS}ms`);
-console.log(`[feeder] hook receiver: POST http://localhost:${PORT}/hook`);
+console.log(`[feeder] polling T3 Code every ${POLL_MS}ms`);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -10,16 +10,6 @@ import { launchAgentPlist } from "../src/services.js";
 
 const cliPath = fileURLToPath(new URL("../bin/commandthing.js", import.meta.url));
 const serviceRunnerPath = fileURLToPath(new URL("../templates/service-runner.mjs", import.meta.url));
-const events = [
-  "UserPromptSubmit",
-  "PreToolUse",
-  "PostToolUse",
-  "Stop",
-  "Notification",
-  "SessionStart",
-  "SessionEnd",
-];
-
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "commandthing-cli-"));
   const settingsPath = join(root, "claude", "settings.json");
@@ -53,41 +43,18 @@ function run(args, paths) {
   });
 }
 
-test("hook setup is idempotent and removal preserves unrelated settings", async () => {
+const LEGACY_HOOK = { hooks: [{ type: "command", command: "'/x/bin/commandthing-hook.mjs'" }] };
+
+test("hook removal cleans legacy entries and preserves unrelated settings", async () => {
   const paths = await fixture();
   try {
-    assert.equal(run(["setup", "hooks"], paths).status, 0);
-    assert.equal(run(["setup", "hooks"], paths).status, 0);
-
-    const installed = JSON.parse(await readFile(paths.settingsPath, "utf8"));
-    const config = JSON.parse(await readFile(join(paths.stateDir, "config.json"), "utf8"));
-    assert.equal(config.server.host, "127.0.0.1");
-    assert.equal(config.server.port, 4000);
-    assert.equal(installed.theme, "dark");
-    assert.deepEqual(Object.keys(installed.hooks).sort(), [...events].sort());
-    for (const event of events) {
-      const commands = installed.hooks[event].flatMap((entry) => entry.hooks.map((hook) => hook.command));
-      assert.equal(commands.filter((command) => command.includes("commandthing-hook.mjs")).length, 1);
-    }
-    const codex = JSON.parse(await readFile(paths.codexHooksPath, "utf8"));
-    assert.deepEqual(Object.keys(codex.hooks).sort(), [
-      "PermissionRequest",
-      "PostToolUse",
-      "PreToolUse",
-      "SessionStart",
-      "Stop",
-      "UserPromptSubmit",
-    ]);
-    for (const entries of Object.values(codex.hooks)) {
-      const commandThingHooks = entries
-        .flatMap((entry) => entry.hooks)
-        .filter((hook) => hook.command.includes("commandthing-hook.mjs"));
-      assert.equal(commandThingHooks.length, 1);
-      assert.equal(commandThingHooks[0].timeout, 2);
-    }
-    assert.equal(codex.description, "personal hooks");
-    assert.equal(codex.hooks.Stop[0].hooks[0].command, "keep-codex");
-    assert.equal(installed.hooks.Stop[0].hooks[0].command, "keep-me");
+    const settings = JSON.parse(await readFile(paths.settingsPath, "utf8"));
+    settings.hooks.Stop.push(LEGACY_HOOK);
+    settings.hooks.SessionEnd = [LEGACY_HOOK];
+    await writeFile(paths.settingsPath, JSON.stringify(settings));
+    const codexHooks = JSON.parse(await readFile(paths.codexHooksPath, "utf8"));
+    codexHooks.hooks.Stop.push(LEGACY_HOOK);
+    await writeFile(paths.codexHooksPath, JSON.stringify(codexHooks));
 
     assert.equal(run(["remove", "hooks"], paths).status, 0);
     const removed = JSON.parse(await readFile(paths.settingsPath, "utf8"));
@@ -106,13 +73,8 @@ test("hook setup is idempotent and removal preserves unrelated settings", async 
 test("CLI rejects unknown options and missing option values", async () => {
   const paths = await fixture();
   try {
-    const unknown = run(["setup", "hooks", "--feader-url", "http://localhost:4000"], paths);
+    const unknown = run(["setup", "--nope"], paths);
     assert.notEqual(unknown.status, 0);
-    assert.match(unknown.stderr, /unknown option: --feader-url/);
-
-    const missing = run(["setup", "hooks", "--feeder-url", "--wrong"], paths);
-    assert.notEqual(missing.status, 0);
-    assert.match(missing.stderr, /--feeder-url requires a value/);
 
     const extra = run(["status", "unexpected"], paths);
     assert.notEqual(extra.status, 0);
@@ -140,53 +102,6 @@ test("launch agent plists preserve every launcher argument and escape XML", () =
   assert.match(result, /<string>\/tmp\/a&amp;b\.sh<\/string>/);
   assert.match(result, /<string>\/tmp\/runtime\.js<\/string>/);
   assert.match(result, /<string>\/dev\/null<\/string>/);
-});
-
-test("Claude settings backups are retained only when settings change and are capped", async () => {
-  const paths = await fixture();
-  try {
-    for (let index = 0; index < 7; index += 1) {
-      const settings = JSON.parse(await readFile(paths.settingsPath, "utf8"));
-      await writeFile(paths.settingsPath, `${JSON.stringify({ ...settings, revision: index })}\n`);
-      assert.equal(run(["setup", "hooks"], paths).status, 0);
-      await new Promise((resolve) => setTimeout(resolve, 2));
-    }
-    const backups = await readdir(join(paths.stateDir, "backups"));
-    assert.equal(backups.filter((name) => name.startsWith("claude-settings-")).length, 5);
-    await writeFile(join(paths.stateDir, "backups", "claude-settings-2000-extra-a.json"), "{}\n");
-    await writeFile(join(paths.stateDir, "backups", "claude-settings-2000-extra-b.json"), "{}\n");
-    assert.equal(run(["setup", "hooks"], paths).status, 0);
-    const afterIdempotentRun = await readdir(join(paths.stateDir, "backups"));
-    assert.equal(afterIdempotentRun.filter((name) => name.startsWith("claude-settings-")).length, 5);
-    assert.ok(afterIdempotentRun.filter((name) => name.startsWith("codex-hooks-")).length <= 5);
-  } finally {
-    await rm(paths.root, { recursive: true, force: true });
-  }
-});
-
-test("hook setup rejects non-http feeder URLs", async () => {
-  const paths = await fixture();
-  try {
-    const result = run(["setup", "hooks", "--feeder-url", "file:///tmp/socket"], paths);
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /must use http or https/);
-  } finally {
-    await rm(paths.root, { recursive: true, force: true });
-  }
-});
-
-test("hook setup uses the configured feeder port", async () => {
-  const paths = await fixture();
-  try {
-    await mkdir(paths.stateDir, { recursive: true });
-    await writeFile(join(paths.stateDir, "config.json"), '{"server":{"port":4321}}\n');
-    assert.equal(run(["setup", "hooks"], paths).status, 0);
-
-    const forwarder = await readFile(join(paths.stateDir, "bin", "commandthing-hook.mjs"), "utf8");
-    assert.match(forwarder, /http:\/\/localhost:4321/);
-  } finally {
-    await rm(paths.root, { recursive: true, force: true });
-  }
 });
 
 test("the default application home is ~/.commandthing", async () => {

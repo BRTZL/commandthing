@@ -7,7 +7,7 @@ public issue. Include the affected version, reproduction steps, and expected imp
 
 ## Local network boundary
 
-CommandThing serves local session, usage, media, and hook data without application-level
+CommandThing serves local session, usage, and media data without application-level
 authentication. The default configuration therefore binds the feeder to `127.0.0.1`; the Car Thing
 reaches it through the ADB reverse tunnel.
 

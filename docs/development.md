@@ -40,7 +40,7 @@ than relying on packages hoisted at the root.
 The CLI manages the macOS LaunchAgents:
 
 ```bash
-pnpm commandthing setup --skip-hooks
+pnpm commandthing setup
 pnpm commandthing logs
 pnpm commandthing uninstall
 ```
@@ -53,7 +53,7 @@ are rotated at 5 MiB with three retained files under `~/.commandthing/logs`; `pn
 follows both active files.
 
 Installation is transactional: both plists are generated and linted before the active services are
-stopped. The previous agents and runtime are restored when bootstrap, hook installation, or feeder
+stopped. The previous agents and runtime are restored when bootstrap or feeder
 health validation fails. Successful updates retain only the current and previous runtime versions.
 
 Advanced device investigations are also CLI-owned:

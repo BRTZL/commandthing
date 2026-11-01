@@ -6,7 +6,6 @@ Start with the guide that matches what you are trying to do:
 |---|---|
 | Run CommandThing on a Mac | [Getting started](getting-started.md) |
 | Change ports, Open Usage, or local paths | [Configuration](configuration.md) |
-| Configure Claude Code and Codex hooks | [CLI](cli.md) |
 | Review bundled provider-logo sources | [Brand assets](brand-assets.md) |
 | Connect a physical Car Thing | [Device setup](device-setup.md) |
 | Understand components and data flow | [Architecture](architecture.md) |

@@ -44,8 +44,17 @@ kiosk after the feeder becomes healthy.
 
 ## Configure the kiosk
 
-Point the device kiosk to `http://localhost:4000`. How the URL is configured depends on installed
-firmware. Consult that firmware's current documentation before modifying its service configuration.
+Point the device kiosk to `http://localhost:4000`. On the Thing Labs 8.9.2 image the URL is Chromium's
+`--app=` flag in `/etc/supervisord.conf`, on a read-only root:
+
+```bash
+adb shell 'mount -o remount,rw / &&
+  cp -n /etc/supervisord.conf /etc/supervisord.conf.stock &&
+  sed -i "s#--app=file:///usr/share/qt-superbird-app/webapp/index.html#--app=http://localhost:4000#" /etc/supervisord.conf &&
+  sync; mount -o remount,ro /; reboot'
+```
+
+Other firmware may configure this differently; consult its documentation first.
 
 ## Verify the device
 
