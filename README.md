@@ -2,7 +2,7 @@
 
 **Turn a Spotify Car Thing into a desk display for your AI coding agents.**
 
-![CommandThing's sessions board on a Car Thing](docs/images/carthing.png)
+![CommandThing's Usage, Sessions, Session detail and Focus screens on four Car Things](docs/images/carthing.jpg)
 
 CommandThing shows every agent thread running in [T3 Code](https://t3.codes) on a small screen
 beside your keyboard. You can see at a glance which threads are working, which ones are blocked on
@@ -127,4 +127,4 @@ advanced setting; see [Security](SECURITY.md).
 
 [MIT](LICENSE). CommandThing is independent software for discontinued Spotify Car Thing hardware.
 Spotify is not affiliated with or responsible for this project. The screenshots use made-up demo
-data.
+data. The device photo at the top is a Spotify press image with CommandThing screens placed on it.
