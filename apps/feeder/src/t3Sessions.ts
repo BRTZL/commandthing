@@ -40,9 +40,16 @@ export interface ThreadStatusInput {
   latestStatus: string | null;
   completedAt: string | null;
   lastVisitedAt: string | null;
-  /** Subagents, monitors, or tasks still running. Plain shell commands do not count. */
+  /** Subagents, background tasks, or anything the agent marked awaited. Plain commands and monitors do not count. */
   backgroundWork?: number;
+  /** Unmerged pull requests the agent is watching. */
   pullRequestWatches?: number;
+  /** The active run is only waiting on another thread (t3_thread_wait, or delegate_task in wait mode). */
+  blockedOnThreadWait?: number;
+  /** Messages from a guest share that nobody has answered. */
+  guestRequests?: number;
+  /** Plan mode, with a proposed plan waiting to be accepted. */
+  planReady?: number;
 }
 
 export interface ThreadStatus {
@@ -51,31 +58,50 @@ export interface ThreadStatus {
   label: string;
 }
 
+const SETTLED = new Set(["cancelled", "completed", "failed", "interrupted"]);
+
+/** Mirrors `resolveThreadStatusPill` in T3 Code's Sidebar.logic.ts, in the same order. */
 export function deriveThreadStatus(input: ThreadStatusInput): ThreadStatus {
   if (input.pendingKind) {
     const label = input.pendingKind === "user_input" ? "Awaiting Input" : "Pending Approval";
     return { state: "waiting", needsInput: true, label };
   }
-  if (input.activityStatus === "running" || input.activityStatus === "waiting") {
+  if (input.guestRequests) return { state: "waiting", needsInput: true, label: "Guest Request" };
+  const running = input.activityStatus === "running";
+  if ((running && !input.blockedOnThreadWait) || input.activityStatus === "waiting") {
     return { state: "working", needsInput: false, label: "Working" };
   }
-  if (input.activityStatus || input.latestStatus === "queued") {
+  if ((input.activityStatus && !running) || input.latestStatus === "queued") {
     return { state: "working", needsInput: false, label: "Connecting" };
   }
-  const settled = input.latestStatus !== null && input.latestStatus !== "rolled_back";
-  if ((settled && input.backgroundWork) || input.pullRequestWatches) {
+  // T3 counts background work only once the latest run has settled; a thread with no runs
+  // can still be held by a watched pull request.
+  const settled =
+    input.latestStatus === null || SETTLED.has(input.latestStatus) || input.latestStatus === "waiting";
+  const held =
+    (input.latestStatus !== null && settled && input.backgroundWork) || (settled && input.pullRequestWatches);
+  if ((running && input.blockedOnThreadWait) || (!input.activityStatus && held)) {
     return { state: "background", needsInput: false, label: "Waiting" };
   }
-  if (input.latestStatus === "failed") return { state: "failed", needsInput: false, label: "Failed" };
-  if (input.latestStatus === "interrupted" || input.latestStatus === "cancelled") {
-    return { state: "idle", needsInput: false, label: "Stopped" };
+  if (input.latestStatus === "failed" && isAfter(input.completedAt, input.lastVisitedAt, true)) {
+    return { state: "failed", needsInput: false, label: "Failed" };
   }
-  const unseen =
-    input.latestStatus === "completed" &&
-    (!input.lastVisitedAt || !input.completedAt || input.completedAt > input.lastVisitedAt);
-  return unseen
-    ? { state: "done", needsInput: false, label: "Completed" }
-    : { state: "idle", needsInput: false, label: "Idle" };
+  if (input.planReady && input.latestStatus !== null && SETTLED.has(input.latestStatus)) {
+    return { state: "done", needsInput: false, label: "Plan Ready" };
+  }
+  // A thread never opened in T3 shows no "Completed" pill, so it stays idle here too.
+  if (input.completedAt && input.lastVisitedAt && isAfter(input.completedAt, input.lastVisitedAt, true)) {
+    return { state: "done", needsInput: false, label: "Completed" };
+  }
+  return { state: "idle", needsInput: false, label: "Idle" };
+}
+
+/** Whether `a` is later than `b`; `fallback` when either is missing or unparsable. */
+function isAfter(a: string | null, b: string | null, fallback: boolean): boolean {
+  const left = a ? Date.parse(a) : Number.NaN;
+  const right = b ? Date.parse(b) : Number.NaN;
+  if (Number.isNaN(left) || Number.isNaN(right)) return fallback;
+  return left > right;
 }
 
 const ACTIVITY_STATUSES = "('preparing','starting','running','waiting')";
@@ -120,11 +146,31 @@ const THREAD_COLUMNS = `
         json_each(pt.payload_json, '$.pendingBackgroundTasks') task
       WHERE pt.thread_id = t.thread_id
         AND (t.active_provider_thread_id IS NULL OR pt.provider_thread_id = t.active_provider_thread_id)
-        AND json_extract(task.value, '$.kind') IS NOT 'command')
+        AND (json_extract(task.value, '$.awaited') = 1
+          OR json_extract(task.value, '$.kind') IN ('subagent', 'background_task')))
   ) AS backgroundWork,
   EXISTS (SELECT 1 FROM json_each(t.payload_json, '$.pullRequests') pr
     WHERE json_extract(pr.value, '$.watch') IS NOT NULL
-      AND json_extract(pr.value, '$.source') IS NOT 'stack-dismissed') AS pullRequestWatches,
+      AND json_extract(pr.value, '$.source') IS NOT 'stack-dismissed'
+      AND json_extract(pr.value, '$.snapshot.state') IS NOT 'merged') AS pullRequestWatches,
+  (SELECT COUNT(*) > 0 AND SUM(NOT (w.type = 'dynamic_tool' AND (
+        json_extract(w.payload_json, '$.toolName') LIKE '%t3_thread_wait'
+        OR (json_extract(w.payload_json, '$.toolName') LIKE '%delegate_task'
+          AND json_extract(w.payload_json, '$.input.mode') = 'wait')))) = 0
+    FROM orchestration_v2_projection_turn_items w
+    WHERE w.thread_id = t.thread_id
+      AND w.run_id = (SELECT r.run_id FROM orchestration_v2_projection_runs r
+        WHERE r.thread_id = t.thread_id AND r.status = 'running' ORDER BY r.ordinal DESC LIMIT 1)
+      AND w.type IN ('command_execution', 'dynamic_tool', 'subagent', 'file_change', 'file_search',
+        'web_search', 'compaction')
+      AND w.status IN ('running', 'waiting')
+      AND NOT (w.type = 'subagent' AND json_extract(w.payload_json, '$.origin') IS 'app_owned')
+  ) AS blockedOnThreadWait,
+  (SELECT COUNT(*) FROM json_each(t.payload_json, '$.guestShare.messages') g
+    WHERE json_extract(g.value, '$.status') = 'pending') AS guestRequests,
+  (json_extract(t.payload_json, '$.interactionMode') IS 'plan' AND EXISTS (
+    SELECT 1 FROM orchestration_v2_projection_plans pl
+    WHERE pl.thread_id = t.thread_id AND pl.kind = 'proposed_plan' AND pl.status = 'active')) AS planReady,
   (SELECT COUNT(*) FROM orchestration_v2_projection_subagents a
     WHERE a.thread_id = t.thread_id AND a.status = 'running') AS subagentCount,
   (SELECT substr(json_extract(m.payload_json, '$.text'), 1, 200)

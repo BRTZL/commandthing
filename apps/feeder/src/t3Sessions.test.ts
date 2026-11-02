@@ -24,6 +24,15 @@ test("status follows T3's sidebar precedence", () => {
   assert.equal(deriveThreadStatus({ ...IDLE, activityStatus: "running" }).state, "working");
   assert.equal(deriveThreadStatus({ ...IDLE, activityStatus: "starting" }).label, "Connecting");
   assert.equal(deriveThreadStatus({ ...IDLE, latestStatus: "failed" }).label, "Failed");
+  const seenFailure = { latestStatus: "failed", completedAt: "2026-01-01T00:00:00.000Z" };
+  assert.equal(
+    deriveThreadStatus({ ...IDLE, ...seenFailure, lastVisitedAt: "2026-01-02T00:00:00.000Z" }).label,
+    "Idle",
+  );
+  const waitingOnChild = deriveThreadStatus({ ...IDLE, activityStatus: "running", blockedOnThreadWait: 1 });
+  assert.deepEqual(waitingOnChild, { state: "background", needsInput: false, label: "Waiting" });
+  assert.equal(deriveThreadStatus({ ...IDLE, guestRequests: 2 }).label, "Guest Request");
+  assert.equal(deriveThreadStatus({ ...IDLE, latestStatus: "completed", planReady: 1 }).label, "Plan Ready");
   const background = deriveThreadStatus({ ...IDLE, latestStatus: "completed", backgroundWork: 1 });
   assert.deepEqual(background, { state: "background", needsInput: false, label: "Waiting" });
   assert.equal(deriveThreadStatus({ ...IDLE, pullRequestWatches: 1 }).label, "Waiting");
@@ -36,6 +45,8 @@ test("status follows T3's sidebar precedence", () => {
 
 test("a completed run stays unseen until the thread is visited", () => {
   const completed = { ...IDLE, latestStatus: "completed", completedAt: "2026-01-02T00:00:00.000Z" };
+  // T3 shows no pill for a thread that was never opened.
+  assert.equal(deriveThreadStatus(completed).state, "idle");
   assert.equal(deriveThreadStatus({ ...completed, lastVisitedAt: "2026-01-01T00:00:00.000Z" }).state, "done");
   assert.equal(deriveThreadStatus({ ...completed, lastVisitedAt: "2026-01-03T00:00:00.000Z" }).state, "idle");
 });
@@ -54,6 +65,7 @@ function fixture() {
     CREATE TABLE orchestration_v2_projection_provider_threads (provider_thread_id TEXT, thread_id TEXT, payload_json TEXT);
     CREATE TABLE orchestration_v2_projection_subagents (thread_id TEXT, status TEXT);
     CREATE TABLE orchestration_v2_projection_messages (thread_id TEXT, role TEXT, created_at TEXT, payload_json TEXT);
+    CREATE TABLE orchestration_v2_projection_plans (thread_id TEXT, kind TEXT, status TEXT);
     CREATE TABLE orchestration_v2_projection_checkpoints (thread_id TEXT, run_id TEXT, status TEXT, captured_at TEXT, payload_json TEXT);
     CREATE TABLE orchestration_v2_projection_turn_items (turn_item_id TEXT, thread_id TEXT, run_id TEXT, ordinal INT,
       type TEXT, status TEXT, updated_at TEXT, payload_json TEXT);
@@ -104,13 +116,26 @@ function fixture() {
     }),
   );
   thread.run("snoozed", "Snoozed", null, payload({ snoozedUntil: "2999-01-01T00:00:00.000Z" }));
+  thread.run("awaited", "Awaited command", null, payload({}));
+  thread.run("parent", "Waiting on a child", null, payload({}));
+  thread.run(
+    "monitorOnly",
+    "Unawaited monitor",
+    null,
+    payload({ lastVisitedAt: "2026-01-02T00:00:00.000Z" }),
+  );
   db.exec(`
     INSERT INTO orchestration_v2_projection_runs VALUES ('r1', 'working', 1, 'running', '2026-01-01T00:00:00.000Z', NULL);
     INSERT INTO orchestration_v2_projection_runs VALUES ('r2', 'blocked', 1, 'running', '2026-01-01T00:00:00.000Z', NULL);
     INSERT INTO orchestration_v2_projection_runs VALUES ('r3', 'monitoring', 1, 'completed', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
     INSERT INTO orchestration_v2_projection_runs VALUES ('r4', 'shell', 1, 'completed', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
-    INSERT INTO orchestration_v2_projection_provider_threads VALUES ('pt1', 'monitoring', '{"pendingBackgroundTasks":[{"taskId":"a","kind":"monitor"}]}');
+    INSERT INTO orchestration_v2_projection_provider_threads VALUES ('pt1', 'monitoring', '{"pendingBackgroundTasks":[{"taskId":"a","kind":"monitor","awaited":true}]}');
     INSERT INTO orchestration_v2_projection_provider_threads VALUES ('pt2', 'shell', '{"pendingBackgroundTasks":[{"taskId":"b","kind":"command"}]}');
+    INSERT INTO orchestration_v2_projection_runs VALUES ('r5', 'awaited', 1, 'completed', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+    INSERT INTO orchestration_v2_projection_provider_threads VALUES ('pt3', 'awaited', '{"pendingBackgroundTasks":[{"taskId":"c","kind":"command","awaited":true}]}');
+    INSERT INTO orchestration_v2_projection_runs VALUES ('r6', 'parent', 1, 'running', '2026-01-01T00:00:00.000Z', NULL);
+    INSERT INTO orchestration_v2_projection_runs VALUES ('r7', 'monitorOnly', 1, 'completed', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+    INSERT INTO orchestration_v2_projection_provider_threads VALUES ('pt4', 'monitorOnly', '{"pendingBackgroundTasks":[{"taskId":"d","kind":"monitor"}]}');
     INSERT INTO orchestration_v2_projection_runtime_requests VALUES ('blocked', 'user_input', 'pending', '2026-01-01T00:00:00.000Z');
     INSERT INTO orchestration_v2_projection_subagents VALUES ('working', 'running');
     INSERT INTO orchestration_v2_projection_messages VALUES ('working', 'user', '2026-01-01T00:00:00.000Z', '{"text":"fix it"}');
@@ -128,7 +153,8 @@ function fixture() {
       ('i2', 'working', 'r1', 3, 'command_execution', 'running', NULL, '{"input":"pnpm\\n test"}'),
       ('q1', 'blocked', 'r2', 1, 'user_input_request', 'waiting', NULL, '{"questions":[{"header":"Deploy","question":"Ship it now?","options":[{"label":"Yes"},{"label":"No"}]}]}'),
       ('m1', 'shell', 'r4', 1, 'assistant_message', 'completed', NULL, '{"text":"All done"}'),
-      ('i3', 'working', 'r1', 4, 'todo_list', 'running', NULL, '{"steps":[{"text":"ship","status":"pending"}]}');
+      ('i3', 'working', 'r1', 4, 'todo_list', 'running', NULL, '{"steps":[{"text":"ship","status":"pending"}]}'),
+      ('w1', 'parent', 'r6', 1, 'dynamic_tool', 'running', NULL, '{"toolName":"mcp__t3-code__t3_thread_wait","input":{}}');
   `);
   db.close();
   writeFileSync(join(dir, "server-runtime.json"), JSON.stringify({ pid: process.pid }));
@@ -142,13 +168,18 @@ test("board lists active root threads with blocked ones first", () => {
     const { sessions, error } = source.snapshot();
     assert.equal(error, null);
     assert.deepEqual(
-      sessions.map((s) => s.id),
-      ["blocked", "working", "monitoring", "shell"],
+      sessions.map((s) => `${s.id}:${s.statusLabel}`),
+      [
+        "blocked:Awaiting Input",
+        "working:Working",
+        "monitoring:Waiting",
+        "awaited:Waiting",
+        "parent:Waiting",
+        "shell:Idle",
+        "monitorOnly:Idle",
+      ],
     );
     assert.equal(sessions[0].needsInput, true);
-    assert.equal(sessions[1].statusLabel, "Working");
-    assert.equal(sessions[2].statusLabel, "Waiting");
-    assert.equal(sessions[3].statusLabel, "Completed");
     assert.equal(sessions[1].subagentCount, 1);
     assert.equal(sessions[1].lastPrompt, "fix it");
     assert.equal(sessions[1].project, "carthing");
