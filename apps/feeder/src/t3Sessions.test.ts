@@ -83,8 +83,12 @@ function fixture() {
     INSERT INTO orchestration_v2_projection_messages VALUES ('working', 'user', '2026-01-01T00:00:00.000Z', '{"text":"fix it"}');
     INSERT INTO orchestration_v2_projection_turn_items VALUES
       ('i1', 'working', 'r1', 1, 'user_message', 'completed', NULL, '{"text":"fix it"}'),
-      ('i2', 'working', 'r1', 2, 'command_execution', 'running', NULL, '{"input":"pnpm\\n test"}'),
-      ('i3', 'working', 'r1', 3, 'todo_list', 'running', NULL, '{"steps":[{"text":"ship","status":"pending"}]}');
+      ('i0', 'working', 'r1', 2, 'reasoning', 'completed', NULL, '{"text":"hmm"}'),
+      ('i4', 'working', 'r1', 2, 'command_execution', 'completed', NULL, '{"input":"ls"}'),
+      ('i2', 'working', 'r1', 3, 'command_execution', 'running', NULL, '{"input":"pnpm\\n test"}'),
+      ('q1', 'blocked', 'r2', 1, 'user_input_request', 'waiting', NULL, '{"questions":[{"header":"Deploy","question":"Ship it now?","options":[{"label":"Yes"},{"label":"No"}]}]}'),
+      ('m1', 'shell', 'r4', 1, 'assistant_message', 'completed', NULL, '{"text":"All done"}'),
+      ('i3', 'working', 'r1', 4, 'todo_list', 'running', NULL, '{"steps":[{"text":"ship","status":"pending"}]}');
   `);
   db.close();
   writeFileSync(join(dir, "server-runtime.json"), JSON.stringify({ pid: process.pid }));
@@ -122,11 +126,27 @@ test("detail maps turn items to a timeline", () => {
     const detail = source.detail("working");
     assert.deepEqual(
       detail?.items.map((item) => item.kind),
-      ["prompt", "tool", "todos"],
+      ["prompt", "tools"],
     );
-    assert.equal(detail?.items[1].tool?.target, "pnpm test");
-    assert.deepEqual(detail?.toolCounts, { Shell: 1 });
+    assert.deepEqual(detail?.items[1].tools, {
+      counts: [{ name: "Shell", count: 2 }],
+      lastTarget: "pnpm test",
+      failed: 0,
+      running: true,
+    });
+    assert.deepEqual(detail?.focus, { kind: "activity", title: "Shell", text: "pnpm test" });
     assert.deepEqual(detail?.todos, [{ content: "ship", status: "pending" }]);
+    const blocked = source.detail("blocked");
+    assert.deepEqual(blocked?.focus, {
+      kind: "request",
+      title: "Deploy",
+      text: "Ship it now?",
+      options: ["Yes", "No"],
+    });
+    const failed = source.detail("shell");
+    assert.equal(failed?.focus?.kind, "reply");
+    assert.equal(failed?.focus?.text, "All done");
+    assert.deepEqual(failed?.items, []);
     assert.equal(source.detail("missing"), null);
   } finally {
     source.close();

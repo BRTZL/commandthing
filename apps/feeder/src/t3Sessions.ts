@@ -14,6 +14,7 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 import type {
   AgentSession,
   SessionDetail,
+  SessionFocus,
   SessionState,
   SessionTimelineItem,
   TodoItem,
@@ -165,6 +166,8 @@ interface ItemRow {
   fileName: string | null;
   prompt: string | null;
   steps: string | null;
+  questions: string | null;
+  reason: string | null;
   failure: string | null;
 }
 
@@ -182,7 +185,6 @@ export class T3Source {
   private threads: StatementSync | null = null;
   private thread: StatementSync | null = null;
   private items: StatementSync | null = null;
-  private messages: StatementSync | null = null;
 
   constructor(
     private readonly dbPath = process.env.COMMANDTHING_T3_DB || DEFAULT_T3_DB,
@@ -214,19 +216,7 @@ export class T3Source {
     if (!row) return null;
     const session = toSession(row);
     const rows = (this.items!.all(id, MAX_ITEMS) as unknown as ItemRow[]).reverse();
-    const counted = this.messages!.get(id) as unknown as { count: number };
-
-    const toolCounts: Record<string, number> = {};
-    let todos: TodoItem[] = [];
-    const items: SessionTimelineItem[] = [];
-    for (const row of rows) {
-      const item = toTimelineItem(row);
-      if (!item) continue;
-      if (item.tool) toolCounts[item.tool.name] = (toolCounts[item.tool.name] ?? 0) + 1;
-      if (item.todos) todos = item.todos;
-      items.push(item);
-    }
-
+    const focus = buildFocus(session, rows);
     return {
       id,
       project: session.project,
@@ -237,10 +227,11 @@ export class T3Source {
       state: session.state,
       statusLabel: session.statusLabel,
       needsInput: session.needsInput,
-      messageCount: counted.count,
-      toolCounts,
-      todos,
-      items,
+      lastActivity: session.lastActivity,
+      subagentCount: session.subagentCount,
+      focus,
+      todos: latestTodos(rows),
+      items: buildTimeline(rows, focus),
       generatedAt: now,
     };
   }
@@ -293,13 +284,12 @@ export class T3Source {
           json_extract(i.payload_json, '$.fileName') AS fileName,
           substr(json_extract(i.payload_json, '$.prompt'), 1, 300) AS prompt,
           json_extract(i.payload_json, '$.steps') AS steps,
+          json_extract(i.payload_json, '$.questions') AS questions,
+          substr(json_extract(i.payload_json, '$.reason'), 1, 200) AS reason,
           json_extract(i.payload_json, '$.failure.message') AS failure
         FROM orchestration_v2_projection_turn_items i
         WHERE i.thread_id = ?
         ORDER BY i.ordinal DESC LIMIT ?`);
-      this.messages = db.prepare(
-        "SELECT COUNT(*) AS count FROM orchestration_v2_projection_messages WHERE thread_id = ?",
-      );
       this.db = db;
     } catch (error) {
       db.close();
@@ -336,55 +326,143 @@ function toSession(row: ThreadRow): AgentSession {
   };
 }
 
-function toTimelineItem(row: ItemRow): SessionTimelineItem | null {
-  const ts = row.updatedAt ? Date.parse(row.updatedAt) || null : null;
-  const base = { id: row.id, ts };
-  const tool = (name: string, target: string | null): SessionTimelineItem => ({
-    ...base,
-    kind: "tool",
-    title: name,
-    tool: { name, target, status: toolStatus(row.status) },
-  });
+const REQUEST_TYPES = new Set(["approval_request", "user_input_request", "secret_request"]);
+
+function toolCall(row: ItemRow): { name: string; target: string | null } | null {
   switch (row.type) {
-    case "user_message":
-      return { ...base, kind: "prompt", title: "You", text: row.text };
-    case "assistant_message":
-      return row.text?.trim() ? { ...base, kind: "assistant", title: "Agent", text: row.text } : null;
-    case "reasoning":
-      return row.text?.trim()
-        ? { ...base, kind: "thinking", title: "Thinking", text: row.text.slice(0, 500) }
-        : null;
     case "command_execution":
-      return tool("Shell", oneLine(row.input));
+      return { name: "Shell", target: oneLine(row.input) };
     case "dynamic_tool":
-      return tool(row.toolName ?? "Tool", oneLine(row.input));
+      return { name: row.toolName ?? "Tool", target: oneLine(row.input) };
     case "file_change":
-      return tool("Edit", row.fileName ? basename(row.fileName) : null);
+      return { name: "Edit", target: row.fileName ? basename(row.fileName) : null };
     case "web_search":
-      return tool("Search", row.title);
+      return { name: "Search", target: row.title };
     case "subagent":
-      return tool("Subagent", row.title);
-    case "approval_request":
-      return tool("Approval", oneLine(row.prompt));
-    case "user_input_request":
-      return tool("Question", row.title);
-    case "todo_list":
-      return { ...base, kind: "todos", title: "Updated tasks", todos: parseSteps(row.steps) };
-    case "error":
-      return { ...base, kind: "notification", title: "Error", text: row.failure ?? row.title };
+      return { name: "Subagent", target: row.title };
     default:
       return null;
   }
 }
 
-function toolStatus(status: string): "ok" | "error" | "pending" {
-  if (status === "completed") return "ok";
-  if (status === "failed" || status === "cancelled" || status === "interrupted") return "error";
-  return "pending";
+function isActive(status: string): boolean {
+  return status === "pending" || status === "running" || status === "waiting";
 }
 
-function oneLine(value: string | null): string | null {
-  return value ? value.replace(/\s+/g, " ").slice(0, 90) : null;
+function isFailed(status: string): boolean {
+  return status === "failed" || status === "cancelled" || status === "interrupted";
+}
+
+function lastReply(rows: ItemRow[]): ItemRow | null {
+  return rows.findLast((row) => row.type === "assistant_message" && row.text?.trim()) ?? null;
+}
+
+function buildFocus(session: AgentSession, rows: ItemRow[]): SessionFocus | null {
+  if (session.needsInput) {
+    const request = rows.findLast((row) => REQUEST_TYPES.has(row.type));
+    if (request?.type === "approval_request") {
+      return {
+        kind: "request",
+        title: "Approve this?",
+        text: oneLine(request.prompt, 200),
+        detail: request.reason,
+      };
+    }
+    const question = parseQuestions(request?.questions ?? null)[0];
+    return {
+      kind: "request",
+      title: question?.header || "Question for you",
+      text: question?.question ?? request?.title ?? "Open T3 Code to respond.",
+      options: question?.options?.map((option) => String(option.label ?? "")).filter(Boolean),
+    };
+  }
+  if (session.state === "working" || session.state === "background") {
+    const types = session.state === "background" ? ["subagent", "dynamic_tool"] : null;
+    const running = rows.findLast(
+      (row) => isActive(row.status) && toolCall(row) && (!types || types.includes(row.type)),
+    );
+    const call = running && toolCall(running);
+    if (call) return { kind: "activity", title: call.name, text: call.target };
+    return {
+      kind: "activity",
+      title: session.state === "working" ? "Thinking" : "Background work",
+      text: null,
+    };
+  }
+  if (session.state === "failed") {
+    const failure = rows.findLast((row) => row.type === "error");
+    return { kind: "error", title: "Run failed", text: failure?.failure ?? failure?.title ?? null };
+  }
+  const reply = lastReply(rows);
+  return reply ? { kind: "reply", title: "Last reply", text: reply.text } : null;
+}
+
+function latestTodos(rows: ItemRow[]): TodoItem[] {
+  const list = rows.findLast((row) => row.type === "todo_list");
+  return list ? parseSteps(list.steps) : [];
+}
+
+/** Conversation in order, with runs of tool calls collapsed and reasoning left out. */
+function buildTimeline(rows: ItemRow[], focus: SessionFocus | null): SessionTimelineItem[] {
+  // The focus card already shows this row, so it is not repeated below.
+  const skip =
+    focus?.kind === "reply"
+      ? lastReply(rows)
+      : focus?.kind === "error"
+        ? rows.findLast((row) => row.type === "error")
+        : null;
+  const items: SessionTimelineItem[] = [];
+  for (const row of rows) {
+    const ts = row.updatedAt ? Date.parse(row.updatedAt) || null : null;
+    const call = toolCall(row);
+    if (call) {
+      let group = items.at(-1);
+      if (group?.kind !== "tools") {
+        group = {
+          id: row.id,
+          kind: "tools",
+          ts,
+          tools: { counts: [], lastTarget: null, failed: 0, running: false },
+        };
+        items.push(group);
+      }
+      const tools = group.tools!;
+      const counted = tools.counts.find((entry) => entry.name === call.name);
+      if (counted) counted.count += 1;
+      else tools.counts.push({ name: call.name, count: 1 });
+      tools.lastTarget = call.target ?? tools.lastTarget;
+      if (isFailed(row.status)) tools.failed += 1;
+      tools.running = isActive(row.status);
+      group.ts = ts;
+    } else if (row === skip) {
+    } else if (row.type === "user_message" && row.text?.trim()) {
+      items.push({ id: row.id, kind: "prompt", ts, text: row.text });
+    } else if (row.type === "assistant_message" && row.text?.trim()) {
+      items.push({ id: row.id, kind: "assistant", ts, text: row.text });
+    } else if (row.type === "error") {
+      items.push({ id: row.id, kind: "error", ts, text: row.failure ?? row.title });
+    }
+  }
+  const last = items.at(-1)?.tools;
+  if (focus?.kind === "activity" && last?.running && last.counts.length === 1 && last.counts[0].count === 1) {
+    items.pop();
+  }
+  return items;
+}
+
+function oneLine(value: string | null, length = 90): string | null {
+  return value ? value.replace(/\s+/g, " ").slice(0, length) : null;
+}
+
+function parseQuestions(
+  raw: string | null,
+): { header?: string; question?: string; options?: { label?: string }[] }[] {
+  try {
+    const questions = JSON.parse(raw ?? "[]");
+    return Array.isArray(questions) ? questions : [];
+  } catch {
+    return [];
+  }
 }
 
 function parseSteps(raw: string | null): TodoItem[] {

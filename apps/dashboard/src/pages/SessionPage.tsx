@@ -3,16 +3,9 @@ import { client } from "../client";
 import { ChevronLeftIcon } from "../components/icons";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
-import type { SessionDetail, SessionTimelineItem } from "../dashboardTypes";
-import { shortModel } from "../format";
-import { cn } from "../lib/cn";
+import type { SessionDetail, SessionFocus, SessionTimelineItem, TodoItem } from "../dashboardTypes";
+import { relativeTime, shortModel } from "../format";
 import { goBack } from "../router";
-
-// Extra classes layered onto <Badge variant="secondary"> for the header chips
-// (larger text, normal weight, wrap spacing); TI is the timeline rail.
-const CHIP = "mb-2 mr-2 text-sm font-normal";
-const TI = "ml-1 border-l-2 border-border pb-2 pl-3.5 pt-2";
 
 export function SessionPage({ id }: { id: string }) {
   const [{ detail, error }, setResult] = useState<{
@@ -50,64 +43,46 @@ export function SessionPage({ id }: { id: string }) {
     );
   }
 
-  const model = shortModel(detail.model);
-  const todoDone = detail.todos.filter((t) => t.status === "completed").length;
+  // Relative to the feeder's clock: the device's wall clock can be years off.
+  const since = relativeTime(detail.lastActivity, detail.generatedAt);
+  const facts = [
+    shortModel(detail.model),
+    detail.gitBranch && detail.gitBranch !== "HEAD" ? detail.gitBranch : null,
+    since,
+    detail.subagentCount > 0
+      ? `${detail.subagentCount} subagent${detail.subagentCount > 1 ? "s" : ""}`
+      : null,
+  ].filter(Boolean);
   const items = detail.items.slice().reverse(); // newest first
 
   return (
-    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pb-3.5 pt-3">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={goBack}
-        className="-ml-1 mb-1 h-9 w-9 flex-none self-start text-foreground hover:bg-secondary"
-      >
-        <ChevronLeftIcon className="h-5 w-5" />
-      </Button>
-      <Card className="mb-3 flex-none px-4 py-3">
-        <div className="flex items-center justify-between">
-          <span className="mr-3 min-w-0 truncate text-2xl font-bold">{detail.project}</span>
-          <Badge
-            data-state={detail.state}
-            className="rounded-full bg-idle px-3 py-1 text-sm uppercase tracking-wide flex-none data-[state=background]:bg-background-work data-[state=done]:bg-done data-[state=failed]:bg-failed data-[state=waiting]:bg-waiting data-[state=working]:bg-working"
-          >
-            {detail.statusLabel}
-          </Badge>
+    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pt-2">
+      <header className="mb-2 flex flex-none items-center">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={goBack}
+          className="-ml-1 mr-1.5 h-10 w-10 flex-none text-foreground hover:bg-secondary"
+        >
+          <ChevronLeftIcon className="h-5 w-5" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xl font-bold leading-tight">{detail.title ?? detail.project}</div>
+          <div className="mt-0.5 truncate text-sm text-muted-foreground">
+            {detail.project} · {facts.join(" · ")}
+          </div>
         </div>
-        {detail.title && <div className="mt-1 text-base text-muted-foreground">{detail.title}</div>}
-        <div className="mt-2.5 flex flex-wrap">
-          {model && (
-            <Badge variant="secondary" className={cn(CHIP, "text-foreground")}>
-              {model}
-            </Badge>
-          )}
-          {detail.gitBranch && detail.gitBranch !== "HEAD" && (
-            <Badge variant="secondary" className={cn(CHIP, "font-mono text-primary")}>
-              {detail.gitBranch}
-            </Badge>
-          )}
-          <Badge variant="secondary" className={cn(CHIP, "text-foreground")}>
-            {detail.messageCount} msgs
-          </Badge>
-          {detail.todos.length > 0 && (
-            <Badge variant="secondary" className={cn(CHIP, "text-foreground")}>
-              tasks {todoDone}/{detail.todos.length}
-            </Badge>
-          )}
-          {Object.keys(detail.toolCounts)
-            .sort((a, b) => detail.toolCounts[b] - detail.toolCounts[a])
-            .map((k) => (
-              <Badge key={k} variant="secondary" className={cn(CHIP, "text-muted-foreground")}>
-                {k} {detail.toolCounts[k]}
-              </Badge>
-            ))}
-        </div>
-      </Card>
+        <Badge
+          data-state={detail.state}
+          className="ml-3 flex-none rounded-full bg-idle px-3 py-1 text-sm text-foreground data-[state=background]:bg-background-work data-[state=done]:bg-done data-[state=failed]:bg-failed data-[state=waiting]:bg-waiting data-[state=working]:bg-working data-[state=background]:text-primary-foreground data-[state=done]:text-primary-foreground data-[state=failed]:text-primary-foreground data-[state=waiting]:text-primary-foreground data-[state=working]:text-primary-foreground"
+        >
+          {detail.statusLabel}
+        </Badge>
+      </header>
 
-      <div className="dial-scroll min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-0">
-        {items.length === 0 && (
-          <div className="py-10 text-center text-lg text-muted-foreground">No activity yet</div>
-        )}
+      <div className="dial-scroll min-h-0 flex-1 overflow-y-auto pb-3 [&::-webkit-scrollbar]:w-0">
+        {detail.focus && <Focus focus={detail.focus} />}
+        {detail.todos.length > 0 && <Tasks todos={detail.todos} />}
         {items.map((it) => (
           <TimelineRow key={it.id} it={it} />
         ))}
@@ -116,71 +91,89 @@ export function SessionPage({ id }: { id: string }) {
   );
 }
 
-function TimelineRow({ it }: { it: SessionTimelineItem }) {
-  if (it.kind === "todos") {
-    return (
-      <div className={TI}>
-        <div className="flex items-center">
-          <Badge variant="secondary" className="uppercase tracking-wide text-waiting">
-            tasks
-          </Badge>
-          <span className="ml-2 text-sm text-foreground">Updated task list</span>
+function Focus({ focus }: { focus: SessionFocus }) {
+  return (
+    <section
+      data-kind={focus.kind}
+      className="group mb-2.5 rounded-xl border-2 border-border bg-secondary px-4 py-3 data-[kind=error]:border-failed data-[kind=request]:border-waiting"
+    >
+      <div className="text-sm font-semibold text-muted-foreground group-data-[kind=activity]:text-working group-data-[kind=error]:text-failed group-data-[kind=request]:text-waiting">
+        {focus.title}
+      </div>
+      {focus.text && (
+        <div
+          data-kind={focus.kind}
+          className="mt-1 line-clamp-4 whitespace-pre-wrap break-words text-lg leading-snug text-foreground data-[kind=activity]:truncate data-[kind=activity]:font-mono data-[kind=activity]:text-base"
+        >
+          {focus.text}
         </div>
-        <div className="mt-2">
-          {it.todos?.map((t) => (
-            <div
-              key={t.content}
-              data-status={t.status}
-              className="group flex items-center py-0.5 text-base text-foreground"
-            >
-              <span className="mr-2 h-3 w-3 flex-none rounded-sm border-2 border-muted-foreground group-data-[status=completed]:border-working group-data-[status=completed]:bg-working group-data-[status=in_progress]:border-waiting group-data-[status=in_progress]:bg-waiting" />
-              <span className="group-data-[status=completed]:text-muted-foreground group-data-[status=completed]:line-through">
-                {t.content}
-              </span>
-            </div>
+      )}
+      {focus.detail && (
+        <div className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{focus.detail}</div>
+      )}
+      {focus.options && focus.options.length > 0 && (
+        <div className="mt-2 flex flex-wrap">
+          {focus.options.map((option) => (
+            <Badge key={option} variant="secondary" className="mb-1 mr-1.5 px-2.5 py-1 text-sm font-medium">
+              {option}
+            </Badge>
           ))}
         </div>
-      </div>
-    );
-  }
+      )}
+    </section>
+  );
+}
 
-  if (it.kind === "tool") {
-    const st = it.tool?.status ?? "pending";
-    return (
-      <div className={cn(TI, "flex items-center")}>
-        <Badge
-          variant="secondary"
-          data-status={st}
-          className="font-mono data-[status=ok]:border-working/40 data-[status=error]:border-destructive/60 data-[status=error]:text-destructive-foreground"
-        >
-          {it.tool?.name}
-        </Badge>
-        {it.tool?.target && (
-          <span className="ml-2.5 truncate font-mono text-sm text-muted-foreground">{it.tool.target}</span>
-        )}
-        <span
-          data-status={st}
-          className="ml-auto pl-2 text-xs uppercase data-[status=error]:text-destructive-foreground data-[status=ok]:text-working data-[status=pending]:text-waiting"
-        >
-          {st}
-        </span>
-      </div>
-    );
-  }
-
-  const who = it.title;
+function Tasks({ todos }: { todos: TodoItem[] }) {
+  const done = todos.filter((t) => t.status === "completed").length;
+  const current =
+    todos.find((t) => t.status === "in_progress") ?? todos.find((t) => t.status !== "completed");
   return (
-    <div className={TI}>
-      <div className="flex items-center">
-        <Badge
-          variant="secondary"
-          data-kind={it.kind}
-          className="uppercase tracking-wide text-working data-[kind=notification]:text-failed data-[kind=prompt]:text-primary data-[kind=thinking]:text-thinking"
-        >
-          {who}
-        </Badge>
+    <section className="mb-3 flex items-center rounded-xl bg-secondary px-4 py-2.5">
+      <span className="mr-3 flex-none text-sm font-semibold tabular-nums text-foreground">
+        {done}/{todos.length}
+      </span>
+      <span className="mr-3 h-1.5 w-20 flex-none overflow-hidden rounded-full bg-border">
+        <span
+          className="block h-full rounded-full bg-working"
+          style={{ width: `${(done / todos.length) * 100}%` }}
+        />
+      </span>
+      <span className="min-w-0 truncate text-sm text-foreground/80">
+        {current?.content ?? "All tasks done"}
+      </span>
+    </section>
+  );
+}
+
+function TimelineRow({ it }: { it: SessionTimelineItem }) {
+  if (it.kind === "tools" && it.tools) {
+    const { counts, failed, lastTarget, running } = it.tools;
+    return (
+      <div className="flex items-center px-1 py-1.5 text-sm text-muted-foreground">
+        <span className="flex-none font-semibold">
+          {counts.map((c) => (c.count > 1 ? `${c.name} ${c.count}` : c.name)).join(" · ")}
+        </span>
+        {lastTarget && <span className="ml-2.5 min-w-0 truncate font-mono text-xs">{lastTarget}</span>}
+        {failed > 0 && (
+          <span className="ml-auto flex-none pl-2.5 font-semibold text-failed">{failed} failed</span>
+        )}
+        {running && failed === 0 && (
+          <span className="ml-auto flex-none pl-2.5 font-semibold text-working">running</span>
+        )}
       </div>
-      <div className="mt-1.5 max-h-36 overflow-hidden whitespace-pre-wrap break-words text-base leading-normal text-foreground">
+    );
+  }
+  const label = it.kind === "prompt" ? "You" : it.kind === "error" ? "Error" : "Agent";
+  return (
+    <div className="px-1 py-1.5">
+      <div
+        data-kind={it.kind}
+        className="text-xs font-bold text-working data-[kind=error]:text-failed data-[kind=prompt]:text-primary"
+      >
+        {label}
+      </div>
+      <div className="mt-0.5 line-clamp-3 whitespace-pre-wrap break-words text-base leading-snug text-foreground">
         {it.text}
       </div>
     </div>

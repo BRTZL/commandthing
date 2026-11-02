@@ -159,7 +159,7 @@ export interface UsageSummary {
 
 /* ----------------------------- session detail ----------------------------- */
 
-export type TimelineKind = "prompt" | "assistant" | "tool" | "todos" | "thinking" | "notification";
+export type TimelineKind = "prompt" | "assistant" | "tools" | "error";
 
 export interface TodoItem {
   content: string;
@@ -170,10 +170,25 @@ export interface SessionTimelineItem {
   id: string;
   kind: TimelineKind;
   ts: number | null;
-  title: string;
   text?: string | null;
-  tool?: { name: string; target?: string | null; status?: "ok" | "error" | "pending" | null };
-  todos?: TodoItem[];
+  /** For "tools": a run of consecutive tool calls collapsed into one row. */
+  tools?: {
+    counts: { name: string; count: number }[];
+    lastTarget: string | null;
+    failed: number;
+    running: boolean;
+  };
+}
+
+/** The one thing worth reading first on the detail screen. */
+export interface SessionFocus {
+  kind: "request" | "activity" | "error" | "reply";
+  title: string;
+  text: string | null;
+  /** Secondary line, e.g. why an approval is being asked for. */
+  detail?: string | null;
+  /** Answer choices for a question. */
+  options?: string[];
 }
 
 export interface SessionDetail {
@@ -186,9 +201,11 @@ export interface SessionDetail {
   state: SessionState;
   statusLabel: string;
   needsInput: boolean;
-  messageCount: number;
-  toolCounts: Record<string, number>;
+  lastActivity: number;
+  subagentCount: number;
+  focus: SessionFocus | null;
   todos: TodoItem[];
+  /** Newest last. */
   items: SessionTimelineItem[];
   generatedAt: number;
 }
