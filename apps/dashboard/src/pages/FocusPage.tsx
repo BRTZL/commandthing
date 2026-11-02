@@ -1,4 +1,3 @@
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { FOCUS_LABEL, focusTotal, resetFocus, toggleRunning, useFocus } from "../focusTimer";
 
@@ -23,12 +22,15 @@ export function FocusPage() {
       data-flash={s.flash ? "true" : undefined}
       className="relative flex w-full flex-1 flex-col items-center justify-center pt-14 data-[flash=true]:bg-waiting/10"
     >
-      <Badge variant={s.mode === "work" ? "default" : "working"} className="uppercase tracking-wide">
+      <div
+        data-mode={s.mode}
+        className="text-base font-semibold uppercase tracking-widest text-primary data-[mode=break]:text-working data-[mode=long]:text-working"
+      >
         {FOCUS_LABEL[s.mode]}
-      </Badge>
-      <div className="mt-2 text-7xl font-bold tabular-nums">{mmss(s.left)}</div>
+      </div>
+      <div className="mt-1 text-[7.5rem] font-bold leading-none tabular-nums">{mmss(s.left)}</div>
 
-      <div className="mt-4 h-2 w-80 overflow-hidden rounded-full bg-secondary">
+      <div className="mt-6 h-1.5 w-96 overflow-hidden rounded-full bg-secondary">
         <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
 

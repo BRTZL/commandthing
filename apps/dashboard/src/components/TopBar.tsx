@@ -1,11 +1,13 @@
 import { goToTab, type Route } from "../router";
+import { useSessions } from "../store/dashboardStore";
 import { TABS } from "../tabs";
 import { Button } from "./ui/button";
 
 export function TopBar({ route }: { route: Route; floating?: boolean }) {
+  const waiting = useSessions().filter((s) => s.needsInput).length;
   return (
     <header className="z-20 flex h-14 flex-none items-center justify-between absolute top-0 left-0 right-0 bg-background">
-      <nav className="flex flex-1 items-center px-4 gap-4">
+      <nav className="flex flex-1 items-center px-4">
         {TABS.map((t) => (
           <Button
             variant="ghost"
@@ -15,6 +17,11 @@ export function TopBar({ route }: { route: Route; floating?: boolean }) {
             className="h-auto flex-1 cursor-pointer rounded-none border-t-4 border-transparent bg-transparent px-0 py-2 text-foreground hover:bg-transparent data-[active=true]:border-primary"
           >
             <span className="text-lg font-semibold">{t.label}</span>
+            {t.id === "sessions" && waiting > 0 && (
+              <span className="ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-waiting px-1.5 text-sm font-bold text-primary-foreground">
+                {waiting}
+              </span>
+            )}
           </Button>
         ))}
       </nav>

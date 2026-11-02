@@ -33,35 +33,35 @@
   src: url("/fonts/Inter-Bold.ttf") format("truetype");
 }
 
-/* shadcn-style design tokens (HSL triplets) tuned to our dark theme.
+/* shadcn-style design tokens (HSL triplets). StandBy look: true black, no tinted surfaces.
    Chromium-69-safe — no oklch. Components reference these via Tailwind. */
 :root {
-  --background: 228 18% 5%;
+  --background: 0 0% 0%;
   --foreground: 226 31% 95%;
 
-  --card: 228 20% 10%;
+  --card: 225 8% 8%;
   --card-foreground: 226 31% 95%;
 
-  --popover: 228 20% 10%;
+  --popover: 225 8% 8%;
   --popover-foreground: 226 31% 95%;
 
   --primary: 221 89% 72%;
-  --primary-foreground: 228 30% 6%;
+  --primary-foreground: 0 0% 4%;
 
-  --secondary: 228 21% 13%;
+  --secondary: 225 8% 11%;
   --secondary-foreground: 226 31% 95%;
 
-  --muted: 228 21% 13%;
+  --muted: 225 8% 11%;
   --muted-foreground: 226 13% 62%;
 
-  --accent: 227 23% 15%;
+  --accent: 225 8% 14%;
   --accent-foreground: 226 31% 95%;
 
   --destructive: 358 75% 59%;
   --destructive-foreground: 359 100% 81%;
 
-  --border: 226 18% 20%;
-  --input: 226 18% 20%;
+  --border: 225 7% 17%;
+  --input: 225 7% 17%;
   --ring: 221 89% 72%;
 
   /* app-specific session/state colors */

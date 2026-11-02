@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Card } from "../components/ui/card";
 import type { UsageLine, UsageProvider } from "../dashboardTypes";
 import { cn } from "../lib/cn";
 import { useUsage } from "../store/dashboardStore";
@@ -27,14 +26,17 @@ export function UsagePage() {
   }
 
   return (
-    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pb-3.5 pt-16">
-      <div className="mb-3 flex flex-none items-baseline">
-        <span className="text-3xl font-bold tabular-nums">{usage.todayLabel}</span>
-        <span className="ml-3.5 text-base text-muted-foreground">
+    <div className="flex w-full flex-1 flex-col min-h-0 pl-3.5 pr-10 pb-3.5 pt-[4.5rem]">
+      <div className="mb-4 flex flex-none items-end px-1">
+        <span className="text-[4.5rem] font-bold leading-none tabular-nums">
+          {usage.todayTotalUsd != null ? `$${usage.todayTotalUsd.toFixed(2)}` : "—"}
+        </span>
+        <span className="mb-1.5 ml-4 text-2xl font-semibold">today</span>
+        <span className="mb-2 ml-3 text-base text-muted-foreground">
           across {usage.providers.length} providers
         </span>
       </div>
-      <div className="dial-scroll grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto [&::-webkit-scrollbar]:w-0">
+      <div className="dial-scroll min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-0">
         <LimitsOverview providers={usage.providers} />
         {usage.providers.map((p) => (
           <ProviderCard key={p.providerId} p={p} now={now} />
@@ -89,27 +91,26 @@ function LimitsOverview({ providers }: { providers: UsageProvider[] }) {
   if (summaries.length === 0) return null;
 
   return (
-    <Card className="border-primary/25 bg-primary/10 px-3 py-3">
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-sm font-semibold uppercase tracking-wide text-foreground">Limits left</span>
-        <span className="text-xs text-muted-foreground">at a glance</span>
+    <section className="border-t border-border px-1 py-3">
+      <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Limits left
       </div>
       <div className="flex">
         {summaries.map(({ provider, lines }, index) => (
           <div
             key={provider.providerId}
-            className={cn("flex min-w-0 flex-1 items-center px-2", index > 0 && "border-l border-border")}
+            className={cn("flex min-w-0 flex-1 items-center", index > 0 && "border-l border-border pl-4")}
           >
             <ProviderMark providerId={provider.providerId} name={provider.displayName} />
-            <div className="ml-2 min-w-0">
-              <div className="truncate text-sm font-semibold text-foreground">{provider.displayName}</div>
+            <div className="ml-3 min-w-0">
+              <div className="truncate text-base font-semibold text-foreground">{provider.displayName}</div>
               <div className="mt-0.5 flex items-baseline">
                 {lines.map((line, lineIndex) => (
-                  <div key={line.label} className={cn("min-w-0", lineIndex > 0 && "ml-3")}>
-                    <div className="text-xl font-bold leading-none tabular-nums text-primary">
+                  <div key={line.label} className={cn("min-w-0", lineIndex > 0 && "ml-4")}>
+                    <div className="text-4xl font-bold leading-none tabular-nums text-foreground">
                       {remainingLabel(line)}
                     </div>
-                    <div className="mt-1 truncate text-[10px] uppercase leading-none tracking-wide text-muted-foreground">
+                    <div className="mt-1.5 truncate text-xs uppercase leading-none tracking-wide text-muted-foreground">
                       {line.label}
                     </div>
                   </div>
@@ -119,7 +120,7 @@ function LimitsOverview({ providers }: { providers: UsageProvider[] }) {
           </div>
         ))}
       </div>
-    </Card>
+    </section>
   );
 }
 
@@ -153,9 +154,9 @@ function ProviderCard({ p, now }: { p: UsageProvider; now: number }) {
   const texts = p.lines.filter((l) => l.type === "text");
   const chart = p.lines.find((l) => l.type === "barChart");
   return (
-    <Card className="px-4 py-3">
+    <section className="border-t border-border px-1 py-3">
       <div className="mb-3 flex items-baseline justify-between">
-        <span className="text-lg font-bold">{p.displayName}</span>
+        <span className="text-xl font-bold">{p.displayName}</span>
         {p.plan && <span className="text-sm text-muted-foreground">{p.plan}</span>}
       </div>
 
@@ -186,7 +187,7 @@ function ProviderCard({ p, now }: { p: UsageProvider; now: number }) {
       {chart?.points && chart.points.length > 0 && (
         <BarChart points={chart.points} color={chart.color ?? "hsl(var(--primary))"} />
       )}
-    </Card>
+    </section>
   );
 }
 

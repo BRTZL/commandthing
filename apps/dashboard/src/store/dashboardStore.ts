@@ -39,7 +39,16 @@ function setSnapshot(next: DashboardSnapshot): void {
   notify();
 }
 
+/** Feeder clock minus device clock. The Car Thing's wall clock can be years off. */
+let clockOffset = 0;
+
+/** Current time on the feeder's clock, for relative times like "5m ago". */
+export function feederNow(): number {
+  return Date.now() + clockOffset;
+}
+
 function setDashboardState(nextState: DashboardState): void {
+  if (nextState.generatedAt > 0) clockOffset = nextState.generatedAt - Date.now();
   setSnapshot({
     ...snapshot,
     state: reconcileDashboardState(snapshot.state, nextState),

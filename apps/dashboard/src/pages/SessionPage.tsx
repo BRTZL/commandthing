@@ -63,13 +63,13 @@ export function SessionPage({ id }: { id: string }) {
   const items = detail.items.slice().reverse(); // newest first
 
   return (
-    <div className="flex w-full flex-1 flex-col min-h-0 px-3.5 pt-2">
-      <header className="mb-2 flex flex-none items-center">
+    <div className="flex w-full flex-1 flex-col min-h-0 pl-3.5 pr-10 pt-2">
+      <header className="mb-3 flex flex-none items-center">
         <Button
           variant="ghost"
           size="icon"
           onClick={goBack}
-          className="-ml-1 mr-1.5 h-10 w-10 flex-none text-foreground hover:bg-secondary"
+          className="-ml-1 mr-1.5 h-10 w-10 flex-none text-foreground hover:bg-transparent"
         >
           <ChevronLeftIcon className="h-5 w-5" />
         </Button>
@@ -79,12 +79,12 @@ export function SessionPage({ id }: { id: string }) {
             {detail.project} · {facts.join(" · ")}
           </div>
         </div>
-        <Badge
-          data-state={detail.state}
-          className="ml-3 flex-none rounded-full bg-idle px-3 py-1 text-sm text-foreground data-[state=background]:bg-background-work data-[state=done]:bg-done data-[state=failed]:bg-failed data-[state=waiting]:bg-waiting data-[state=working]:bg-working data-[state=background]:text-primary-foreground data-[state=done]:text-primary-foreground data-[state=failed]:text-primary-foreground data-[state=waiting]:text-primary-foreground data-[state=working]:text-primary-foreground"
-        >
-          {detail.statusLabel}
-        </Badge>
+        <span data-state={detail.state} className="group ml-3 flex flex-none items-center">
+          <span className="mr-2 h-2.5 w-2.5 rounded-full bg-idle group-data-[state=background]:bg-background-work group-data-[state=done]:bg-done group-data-[state=failed]:bg-failed group-data-[state=waiting]:bg-waiting group-data-[state=working]:bg-working" />
+          <span className="text-base font-semibold text-muted-foreground group-data-[state=done]:text-done group-data-[state=failed]:text-failed group-data-[state=waiting]:text-waiting group-data-[state=working]:text-working">
+            {detail.statusLabel}
+          </span>
+        </span>
       </header>
 
       <div className="dial-scroll min-h-0 flex-1 overflow-y-auto pb-3 [&::-webkit-scrollbar]:w-0">
@@ -104,28 +104,29 @@ export function SessionPage({ id }: { id: string }) {
 
 function Focus({ focus }: { focus: SessionFocus }) {
   return (
-    <section
-      data-kind={focus.kind}
-      className="group mb-2.5 rounded-xl border-2 border-border bg-secondary px-4 py-3 data-[kind=error]:border-failed data-[kind=request]:border-waiting"
-    >
-      <div className="text-sm font-semibold text-muted-foreground group-data-[kind=activity]:text-working group-data-[kind=error]:text-failed group-data-[kind=request]:text-waiting">
+    <section data-kind={focus.kind} className="group mb-4 px-1">
+      <div className="text-base font-semibold text-muted-foreground group-data-[kind=activity]:text-working group-data-[kind=error]:text-failed group-data-[kind=request]:text-waiting">
         {focus.title}
       </div>
       {focus.text && (
         <div
           data-kind={focus.kind}
-          className="mt-1 line-clamp-4 whitespace-pre-wrap break-words text-lg leading-snug text-foreground data-[kind=activity]:truncate data-[kind=activity]:font-mono data-[kind=activity]:text-base"
+          className="mt-1 line-clamp-4 whitespace-pre-wrap break-words text-2xl leading-snug text-foreground data-[kind=activity]:truncate data-[kind=activity]:font-mono data-[kind=activity]:text-xl"
         >
           {focus.text}
         </div>
       )}
       {focus.detail && (
-        <div className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{focus.detail}</div>
+        <div className="mt-1.5 line-clamp-2 text-base text-muted-foreground">{focus.detail}</div>
       )}
       {focus.options && focus.options.length > 0 && (
-        <div className="mt-2 flex flex-wrap">
+        <div className="mt-3 flex flex-wrap">
           {focus.options.map((option) => (
-            <Badge key={option} variant="secondary" className="mb-1 mr-1.5 px-2.5 py-1 text-sm font-medium">
+            <Badge
+              key={option}
+              variant="outline"
+              className="mb-1.5 mr-2 rounded-full border-2 border-waiting/60 px-3.5 py-1 text-base font-medium text-foreground"
+            >
               {option}
             </Badge>
           ))}
@@ -140,17 +141,17 @@ function Tasks({ todos }: { todos: TodoItem[] }) {
   const current =
     todos.find((t) => t.status === "in_progress") ?? todos.find((t) => t.status !== "completed");
   return (
-    <section className="mb-3 flex items-center rounded-xl bg-secondary px-4 py-2.5">
-      <span className="mr-3 flex-none text-sm font-semibold tabular-nums text-foreground">
+    <section className="flex items-center border-t border-border px-1 py-3">
+      <span className="mr-3 flex-none text-lg font-bold tabular-nums text-foreground">
         {done}/{todos.length}
       </span>
-      <span className="mr-3 h-1.5 w-20 flex-none overflow-hidden rounded-full bg-border">
+      <span className="mr-3 h-1.5 w-24 flex-none overflow-hidden rounded-full bg-secondary">
         <span
           className="block h-full rounded-full bg-working"
           style={{ width: `${(done / todos.length) * 100}%` }}
         />
       </span>
-      <span className="min-w-0 truncate text-sm text-foreground/80">
+      <span className="min-w-0 truncate text-base text-foreground/80">
         {current?.content ?? "All tasks done"}
       </span>
     </section>
@@ -182,7 +183,7 @@ function prStatus(pr: SessionPullRequest): { label: string; tone: string } {
 
 function PullRequests({ pullRequests, hidden }: { pullRequests: SessionPullRequest[]; hidden: number }) {
   return (
-    <section className="mb-2.5 rounded-xl bg-secondary px-4 py-2.5">
+    <section className="border-t border-border px-1 py-3">
       {pullRequests.map((pr, index) => {
         const status = prStatus(pr);
         return (
@@ -217,7 +218,7 @@ function PullRequests({ pullRequests, hidden }: { pullRequests: SessionPullReque
 function Changes({ changes, now }: { changes: SessionChanges; now: number }) {
   const more = changes.fileCount - changes.files.length;
   return (
-    <section className="mb-3 rounded-xl bg-secondary px-4 py-2.5">
+    <section className="mb-1 border-t border-border px-1 py-3">
       <div className="flex items-center text-sm">
         <span className="font-semibold text-foreground">
           Last changes · {changes.fileCount} file{changes.fileCount === 1 ? "" : "s"}
