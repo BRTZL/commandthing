@@ -17,8 +17,8 @@ stays on all day.
 
 | | |
 |---|---|
-| ![Sessions board with two threads that need you and one working](docs/images/sessions.png) | ![Session detail with a question from the agent, task progress, a pull request and changed files](docs/images/session-detail.png) |
-| **Sessions.** Every active thread, sorted so the ones waiting for you come first. Each card shows the project, branch, status, model and running subagents. | **Session detail.** What the thread needs from you or is doing right now, its task progress, linked pull requests with their checks, the files it last changed, and a condensed timeline. |
+| ![Sessions board showing 2 threads need you and the first one's question](docs/images/sessions.png) | ![Session detail with a question from the agent, task progress, a pull request and changed files](docs/images/session-detail.png) |
+| **Sessions.** A huge count of threads that need you, with the first one's actual question, readable from across the desk. Every other thread sits on one line with its status and age. | **Session detail.** What the thread needs from you or is doing right now, its task progress, linked pull requests with their checks, the files it last changed, and a condensed timeline. |
 | ![Usage page with remaining limits for Claude and Codex](docs/images/usage.png) | ![Focus timer set to 25 minutes](docs/images/focus.png) |
 | **Usage.** Today's spend and the limits you have left across AI providers, with reset countdowns. | **Focus.** A Pomodoro timer you set with the dial. |
 
