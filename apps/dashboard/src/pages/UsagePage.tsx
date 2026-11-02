@@ -103,9 +103,9 @@ function LimitsOverview({ providers }: { providers: UsageProvider[] }) {
             <ProviderMark providerId={provider.providerId} name={provider.displayName} />
             <div className="ml-2 min-w-0">
               <div className="truncate text-sm font-semibold text-foreground">{provider.displayName}</div>
-              <div className="mt-0.5 flex items-baseline gap-2">
-                {lines.map((line) => (
-                  <div key={line.label} className="min-w-0">
+              <div className="mt-0.5 flex items-baseline">
+                {lines.map((line, lineIndex) => (
+                  <div key={line.label} className={cn("min-w-0", lineIndex > 0 && "ml-3")}>
                     <div className="text-xl font-bold leading-none tabular-nums text-primary">
                       {remainingLabel(line)}
                     </div>
