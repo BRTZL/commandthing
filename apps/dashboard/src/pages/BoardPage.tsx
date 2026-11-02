@@ -138,7 +138,7 @@ function Hero({
               {lead.project} · {focus?.title ?? lead.statusLabel}
             </div>
             <div
-              data-mono={focus?.kind === "activity" ? "true" : undefined}
+              data-mono={focus?.kind === "activity" && focus.text ? "true" : undefined}
               className="mt-1 line-clamp-2 text-2xl leading-snug data-[mono=true]:font-mono data-[mono=true]:text-xl"
             >
               {focus?.text ?? lead.title ?? lead.lastPrompt}
@@ -170,7 +170,7 @@ function Row({
         className="flex h-auto w-full items-center justify-start rounded-xl py-3 pl-3 pr-10 text-left font-normal text-foreground hover:bg-transparent data-[selected=true]:bg-secondary"
       >
         <span className={`mr-4 h-3 w-3 flex-none rounded-full ${TONE[s.state].dot}`} />
-        <span className="w-44 flex-none truncate text-xl font-bold">{s.project}</span>
+        <span className="mr-3 w-44 flex-none truncate text-xl font-bold">{s.project}</span>
         <span className="min-w-0 flex-1 truncate text-lg text-muted-foreground">
           {s.title ?? s.lastPrompt}
         </span>
