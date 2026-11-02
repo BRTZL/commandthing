@@ -25,21 +25,26 @@ export function SessionCard({
       onClick={onClick}
       className="group relative mb-3 h-auto w-full cursor-pointer justify-start overflow-hidden rounded-xl border-2 border-border bg-secondary py-3 pl-4 pr-7 text-left text-foreground hover:bg-secondary data-[needs=true]:border-waiting data-[selected=true]:border-primary data-[selected=true]:bg-accent data-[selected=true]:ring-2 data-[selected=true]:ring-primary/30"
     >
-      <span className="absolute bottom-0 left-0 top-0 w-1.5 bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting" />
-      <div>
+      <span className="absolute bottom-0 left-0 top-0 w-1.5 bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting group-data-[state=background]:bg-background-work group-data-[state=failed]:bg-failed group-data-[state=done]:bg-done" />
+      <div className="min-w-0 flex-1">
         <div className="flex items-center">
-          <span className="text-2xl font-bold text-foreground">{session.project}</span>
+          <span
+            className="min-w-0 flex-none truncate text-2xl font-bold text-foreground"
+            style={{ maxWidth: session.gitBranch ? "60%" : "100%" }}
+          >
+            {session.project}
+          </span>
           {session.gitBranch && session.gitBranch !== "HEAD" && (
             <Badge
               variant="outline"
-              className="ml-2.5 border-transparent bg-primary/15 font-mono text-sm font-normal text-primary"
+              className="ml-2.5 mr-3 block min-w-0 truncate border-transparent bg-primary/15 font-mono text-sm font-normal text-primary"
             >
               {session.gitBranch}
             </Badge>
           )}
           {session.needsInput && (
-            <Badge variant="waiting" className="ml-auto rounded-full uppercase tracking-wide">
-              needs you
+            <Badge variant="waiting" className="ml-auto flex-none rounded-full px-3 py-1 text-sm">
+              Needs you
             </Badge>
           )}
         </div>
@@ -47,8 +52,10 @@ export function SessionCard({
           {session.title ?? session.lastPrompt ?? "(untitled session)"}
         </div>
         <div className="mt-2.5 flex items-center text-sm text-muted-foreground">
-          <span className="mr-2 h-2 w-2 rounded-full bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting" />
-          <span>{session.statusLabel}</span>
+          <span className="mr-2 h-2 w-2 flex-none rounded-full bg-idle group-data-[state=working]:bg-working group-data-[state=waiting]:bg-waiting group-data-[state=background]:bg-background-work group-data-[state=failed]:bg-failed group-data-[state=done]:bg-done" />
+          <span className="font-semibold group-data-[state=working]:text-working group-data-[state=waiting]:text-waiting group-data-[state=background]:text-background-work group-data-[state=failed]:text-failed group-data-[state=done]:text-done">
+            {session.statusLabel}
+          </span>
           <span className="mx-2 opacity-50">·</span>
           <span>{relativeTime(session.lastActivity, now)}</span>
           {model && (

@@ -66,10 +66,10 @@ export function SessionPage({ id }: { id: string }) {
       </Button>
       <Card className="mb-3 flex-none px-4 py-3">
         <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold">{detail.project}</span>
+          <span className="mr-3 min-w-0 truncate text-2xl font-bold">{detail.project}</span>
           <Badge
             data-state={detail.state}
-            className="rounded-full bg-idle px-3 py-1 text-sm uppercase tracking-wide data-[state=waiting]:bg-waiting data-[state=working]:bg-working data-[state=done]:bg-done"
+            className="rounded-full bg-idle px-3 py-1 text-sm uppercase tracking-wide flex-none data-[state=background]:bg-background-work data-[state=done]:bg-done data-[state=failed]:bg-failed data-[state=waiting]:bg-waiting data-[state=working]:bg-working"
           >
             {detail.statusLabel}
           </Badge>
@@ -175,7 +175,7 @@ function TimelineRow({ it }: { it: SessionTimelineItem }) {
         <Badge
           variant="secondary"
           data-kind={it.kind}
-          className="uppercase tracking-wide text-working data-[kind=prompt]:text-primary data-[kind=thinking]:text-thinking"
+          className="uppercase tracking-wide text-working data-[kind=notification]:text-failed data-[kind=prompt]:text-primary data-[kind=thinking]:text-thinking"
         >
           {who}
         </Badge>

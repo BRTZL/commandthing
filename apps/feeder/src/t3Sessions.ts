@@ -35,6 +35,9 @@ export interface ThreadStatusInput {
   latestStatus: string | null;
   completedAt: string | null;
   lastVisitedAt: string | null;
+  /** Subagents, monitors, or tasks still running. Plain shell commands do not count. */
+  backgroundWork?: number;
+  pullRequestWatches?: number;
 }
 
 export interface ThreadStatus {
@@ -54,7 +57,11 @@ export function deriveThreadStatus(input: ThreadStatusInput): ThreadStatus {
   if (input.activityStatus || input.latestStatus === "queued") {
     return { state: "working", needsInput: false, label: "Connecting" };
   }
-  if (input.latestStatus === "failed") return { state: "idle", needsInput: false, label: "Failed" };
+  const settled = input.latestStatus !== null && input.latestStatus !== "rolled_back";
+  if ((settled && input.backgroundWork) || input.pullRequestWatches) {
+    return { state: "background", needsInput: false, label: "Waiting" };
+  }
+  if (input.latestStatus === "failed") return { state: "failed", needsInput: false, label: "Failed" };
   if (input.latestStatus === "interrupted" || input.latestStatus === "cancelled") {
     return { state: "idle", needsInput: false, label: "Stopped" };
   }
@@ -97,6 +104,22 @@ const THREAD_COLUMNS = `
         AND s.type = 'secret_request' AND s.status = 'waiting'
       LIMIT 1)
   ) AS pendingKind,
+  (
+    EXISTS (SELECT 1 FROM orchestration_v2_projection_turn_items i
+      LEFT JOIN orchestration_v2_projection_runs ir ON ir.run_id = i.run_id
+      WHERE i.thread_id = t.thread_id AND i.type IN ('subagent', 'dynamic_tool')
+        AND i.status IN ('pending', 'running', 'waiting')
+        AND ir.status IS NOT 'rolled_back'
+        AND json_extract(i.payload_json, '$.input.persistent') IS NOT 1)
+    OR EXISTS (SELECT 1 FROM orchestration_v2_projection_provider_threads pt,
+        json_each(pt.payload_json, '$.pendingBackgroundTasks') task
+      WHERE pt.thread_id = t.thread_id
+        AND (t.active_provider_thread_id IS NULL OR pt.provider_thread_id = t.active_provider_thread_id)
+        AND json_extract(task.value, '$.kind') IS NOT 'command')
+  ) AS backgroundWork,
+  EXISTS (SELECT 1 FROM json_each(t.payload_json, '$.pullRequests') pr
+    WHERE json_extract(pr.value, '$.watch') IS NOT NULL
+      AND json_extract(pr.value, '$.source') IS NOT 'stack-dismissed') AS pullRequestWatches,
   (SELECT COUNT(*) FROM orchestration_v2_projection_subagents a
     WHERE a.thread_id = t.thread_id AND a.status = 'running') AS subagentCount,
   (SELECT substr(json_extract(m.payload_json, '$.text'), 1, 200)
@@ -145,7 +168,14 @@ interface ItemRow {
   failure: string | null;
 }
 
-const RANK: Record<SessionState, number> = { waiting: 0, working: 1, done: 2, idle: 3 };
+const RANK: Record<SessionState, number> = {
+  waiting: 0,
+  working: 1,
+  background: 2,
+  failed: 3,
+  done: 4,
+  idle: 5,
+};
 
 export class T3Source {
   private db: DatabaseSync | null = null;

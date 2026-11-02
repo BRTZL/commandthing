@@ -17,7 +17,7 @@ export interface NocturneEvent<T = unknown> {
   data: T;
 }
 
-export type SessionState = "working" | "waiting" | "done" | "idle";
+export type SessionState = "working" | "waiting" | "background" | "failed" | "done" | "idle";
 
 /** One T3 Code thread as shown on the board. */
 export interface AgentSession {
@@ -36,6 +36,8 @@ export interface AgentSession {
   /**
    * working  = a run is active
    * waiting  = blocked on you (always needsInput)
+   * background = its turn ended, but background work will wake it again
+   * failed   = its latest run failed
    * done     = finished and not yet seen in T3
    * idle     = nothing to do
    */

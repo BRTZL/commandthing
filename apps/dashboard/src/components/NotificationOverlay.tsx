@@ -5,7 +5,8 @@ import { Button } from "./ui/button";
 
 /**
  * Watches for sessions transitioning INTO needs-you and raises a tappable toast
- * (plus a soft beep) so you notice from across the room. Tapping opens the
+ * so you notice from across the room. No sound: creating an AudioContext hangs the
+ * device's renderer, and the hardware has no speaker. Tapping opens the
  * session. Pre-existing waiting sessions on first load do NOT alert.
  *
  * (Self-managed rather than sonner — sonner's CSS/runtime doesn't render
@@ -36,7 +37,6 @@ export function NotificationOverlay() {
     prev.current = ids;
     if (fresh) {
       setAlert({ id: fresh.id, project: fresh.project });
-      beep();
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => setAlert(null), 6000);
     }
@@ -59,24 +59,4 @@ export function NotificationOverlay() {
       <span className="ml-auto text-base font-semibold text-waiting">view ›</span>
     </Button>
   );
-}
-
-let audioCtx: AudioContext | null = null;
-function beep(): void {
-  try {
-    const Ctor = window.AudioContext || (window as any).webkitAudioContext;
-    if (!Ctor) return;
-    audioCtx = audioCtx || new Ctor();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.value = 0.04;
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.12);
-  } catch {
-    /* audio not available (autoplay policy / kiosk) — visual toast still shows */
-  }
 }

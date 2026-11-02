@@ -53,8 +53,7 @@ function tick(): void {
     set({ left: state.left - 1 });
     return;
   }
-  // phase complete → chime, flash, advance, and pause for the next phase
-  chime();
+  // phase complete → flash, advance, and pause for the next phase
   triggerFlash();
   stopInterval();
   if (state.mode === "work") {
@@ -101,28 +100,4 @@ function subscribeFocus(cb: () => void): () => void {
   return () => {
     subs.delete(cb);
   };
-}
-
-// Soft two-note completion chime.
-let actx: AudioContext | null = null;
-function chime(): void {
-  try {
-    const Ctor = window.AudioContext || (window as any).webkitAudioContext;
-    if (!Ctor) return;
-    actx = actx || new Ctor();
-    for (const [i, f] of [880, 1320].entries()) {
-      const osc = actx.createOscillator();
-      const gain = actx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = f;
-      gain.gain.value = 0.05;
-      osc.connect(gain);
-      gain.connect(actx.destination);
-      const at = actx.currentTime + i * 0.18;
-      osc.start(at);
-      osc.stop(at + 0.16);
-    }
-  } catch {
-    /* audio unavailable */
-  }
 }

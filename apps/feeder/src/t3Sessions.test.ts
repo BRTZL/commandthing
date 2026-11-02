@@ -24,6 +24,14 @@ test("status follows T3's sidebar precedence", () => {
   assert.equal(deriveThreadStatus({ ...IDLE, activityStatus: "running" }).state, "working");
   assert.equal(deriveThreadStatus({ ...IDLE, activityStatus: "starting" }).label, "Connecting");
   assert.equal(deriveThreadStatus({ ...IDLE, latestStatus: "failed" }).label, "Failed");
+  const background = deriveThreadStatus({ ...IDLE, latestStatus: "completed", backgroundWork: 1 });
+  assert.deepEqual(background, { state: "background", needsInput: false, label: "Waiting" });
+  assert.equal(deriveThreadStatus({ ...IDLE, pullRequestWatches: 1 }).label, "Waiting");
+  assert.equal(deriveThreadStatus({ ...IDLE, backgroundWork: 1 }).label, "Idle");
+  assert.equal(
+    deriveThreadStatus({ ...IDLE, activityStatus: "running", backgroundWork: 1 }).label,
+    "Working",
+  );
 });
 
 test("a completed run stays unseen until the thread is visited", () => {
@@ -38,11 +46,12 @@ function fixture() {
   const db = new DatabaseSync(dbPath);
   db.exec(`
     CREATE TABLE orchestration_v2_projection_threads (thread_id TEXT, project_id TEXT, title TEXT,
-      runtime_mode TEXT, updated_at TEXT, archived_at TEXT, deleted_at TEXT, payload_json TEXT);
+      runtime_mode TEXT, active_provider_thread_id TEXT, updated_at TEXT, archived_at TEXT, deleted_at TEXT, payload_json TEXT);
     CREATE TABLE projection_projects (project_id TEXT, title TEXT, workspace_root TEXT);
     CREATE TABLE orchestration_v2_projection_runs (run_id TEXT, thread_id TEXT, ordinal INT, status TEXT,
       requested_at TEXT, completed_at TEXT);
     CREATE TABLE orchestration_v2_projection_runtime_requests (thread_id TEXT, kind TEXT, status TEXT, created_at TEXT);
+    CREATE TABLE orchestration_v2_projection_provider_threads (provider_thread_id TEXT, thread_id TEXT, payload_json TEXT);
     CREATE TABLE orchestration_v2_projection_subagents (thread_id TEXT, status TEXT);
     CREATE TABLE orchestration_v2_projection_messages (thread_id TEXT, role TEXT, created_at TEXT, payload_json TEXT);
     CREATE TABLE orchestration_v2_projection_turn_items (turn_item_id TEXT, thread_id TEXT, run_id TEXT, ordinal INT,
@@ -50,7 +59,7 @@ function fixture() {
     INSERT INTO projection_projects VALUES ('p', 'carthing', '/work/carthing');
   `);
   const thread = db.prepare(
-    "INSERT INTO orchestration_v2_projection_threads VALUES (?, 'p', ?, 'full-access', '2026-01-01T00:00:00.000Z', ?, NULL, ?)",
+    "INSERT INTO orchestration_v2_projection_threads VALUES (?, 'p', ?, 'full-access', NULL, '2026-01-01T00:00:00.000Z', ?, NULL, ?)",
   );
   const payload = (extra: object) =>
     JSON.stringify({ modelSelection: { model: "opus" }, branch: "main", ...extra });
@@ -59,10 +68,16 @@ function fixture() {
   thread.run("settled", "Settled one", null, payload({ settledOverride: "settled" }));
   thread.run("child", "Child", null, payload({ lineage: { relationshipToParent: "subagent" } }));
   thread.run("archived", "Archived", "2026-01-01T00:00:00.000Z", payload({}));
+  thread.run("monitoring", "Monitoring", null, payload({}));
+  thread.run("shell", "Dev server left running", null, payload({}));
   thread.run("snoozed", "Snoozed", null, payload({ snoozedUntil: "2999-01-01T00:00:00.000Z" }));
   db.exec(`
     INSERT INTO orchestration_v2_projection_runs VALUES ('r1', 'working', 1, 'running', '2026-01-01T00:00:00.000Z', NULL);
     INSERT INTO orchestration_v2_projection_runs VALUES ('r2', 'blocked', 1, 'running', '2026-01-01T00:00:00.000Z', NULL);
+    INSERT INTO orchestration_v2_projection_runs VALUES ('r3', 'monitoring', 1, 'completed', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+    INSERT INTO orchestration_v2_projection_runs VALUES ('r4', 'shell', 1, 'completed', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+    INSERT INTO orchestration_v2_projection_provider_threads VALUES ('pt1', 'monitoring', '{"pendingBackgroundTasks":[{"taskId":"a","kind":"monitor"}]}');
+    INSERT INTO orchestration_v2_projection_provider_threads VALUES ('pt2', 'shell', '{"pendingBackgroundTasks":[{"taskId":"b","kind":"command"}]}');
     INSERT INTO orchestration_v2_projection_runtime_requests VALUES ('blocked', 'user_input', 'pending', '2026-01-01T00:00:00.000Z');
     INSERT INTO orchestration_v2_projection_subagents VALUES ('working', 'running');
     INSERT INTO orchestration_v2_projection_messages VALUES ('working', 'user', '2026-01-01T00:00:00.000Z', '{"text":"fix it"}');
@@ -84,10 +99,12 @@ test("board lists active root threads with blocked ones first", () => {
     assert.equal(error, null);
     assert.deepEqual(
       sessions.map((s) => s.id),
-      ["blocked", "working"],
+      ["blocked", "working", "monitoring", "shell"],
     );
     assert.equal(sessions[0].needsInput, true);
     assert.equal(sessions[1].statusLabel, "Working");
+    assert.equal(sessions[2].statusLabel, "Waiting");
+    assert.equal(sessions[3].statusLabel, "Completed");
     assert.equal(sessions[1].subagentCount, 1);
     assert.equal(sessions[1].lastPrompt, "fix it");
     assert.equal(sessions[1].project, "carthing");

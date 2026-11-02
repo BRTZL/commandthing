@@ -21,6 +21,8 @@ export default {
         working: c("--working"),
         waiting: c("--waiting"),
         done: c("--done"),
+        failed: c("--failed"),
+        "background-work": c("--background-work"),
         idle: c("--idle"),
         thinking: c("--thinking"),
       },
