@@ -13,8 +13,10 @@ import { basename, dirname, join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import type {
   AgentSession,
+  SessionChanges,
   SessionDetail,
   SessionFocus,
+  SessionPullRequest,
   SessionState,
   SessionTimelineItem,
   TodoItem,
@@ -22,6 +24,8 @@ import type {
 
 const MAX_SESSIONS = 12;
 const MAX_ITEMS = 150;
+const MAX_PULL_REQUESTS = 2;
+const MAX_CHANGED_FILES = 3;
 
 export const DEFAULT_T3_DB = join(homedir(), ".t3", "userdata", "statev2.sqlite");
 
@@ -154,6 +158,11 @@ interface ThreadRow extends ThreadStatusInput {
   lastPrompt: string | null;
 }
 
+interface CheckpointRow {
+  capturedAt: string;
+  files: string;
+}
+
 interface ItemRow {
   id: string;
   type: string;
@@ -185,6 +194,8 @@ export class T3Source {
   private threads: StatementSync | null = null;
   private thread: StatementSync | null = null;
   private items: StatementSync | null = null;
+  private links: StatementSync | null = null;
+  private checkpoint: StatementSync | null = null;
 
   constructor(
     private readonly dbPath = process.env.COMMANDTHING_T3_DB || DEFAULT_T3_DB,
@@ -217,6 +228,8 @@ export class T3Source {
     const session = toSession(row);
     const rows = (this.items!.all(id, MAX_ITEMS) as unknown as ItemRow[]).reverse();
     const focus = buildFocus(session, rows);
+    const links = this.links!.get(id) as { raw: string | null } | undefined;
+    const checkpoint = this.checkpoint!.get(id) as unknown as CheckpointRow | undefined;
     return {
       id,
       project: session.project,
@@ -231,6 +244,8 @@ export class T3Source {
       subagentCount: session.subagentCount,
       focus,
       todos: latestTodos(rows),
+      ...selectPullRequests(links?.raw ?? null),
+      changes: checkpoint ? toChanges(checkpoint) : null,
       items: buildTimeline(rows, focus),
       generatedAt: now,
     };
@@ -290,6 +305,17 @@ export class T3Source {
         FROM orchestration_v2_projection_turn_items i
         WHERE i.thread_id = ?
         ORDER BY i.ordinal DESC LIMIT ?`);
+      // The payload is what T3 keeps syncing; projection_thread_pull_requests stopped updating.
+      this.links = db.prepare(`
+        SELECT json_extract(payload_json, '$.pullRequests') AS raw
+        FROM orchestration_v2_projection_threads WHERE thread_id = ?`);
+      this.checkpoint = db.prepare(`
+        SELECT c.captured_at AS capturedAt, json_extract(c.payload_json, '$.files') AS files
+        FROM orchestration_v2_projection_checkpoints c
+        LEFT JOIN orchestration_v2_projection_runs r ON r.run_id = c.run_id
+        WHERE c.thread_id = ? AND c.status = 'ready' AND r.status IS NOT 'rolled_back'
+          AND json_array_length(c.payload_json, '$.files') > 0
+        ORDER BY c.captured_at DESC LIMIT 1`);
       this.db = db;
     } catch (error) {
       db.close();
@@ -351,6 +377,79 @@ function isActive(status: string): boolean {
 
 function isFailed(status: string): boolean {
   return status === "failed" || status === "cancelled" || status === "interrupted";
+}
+
+interface PullRequestLink {
+  number: number;
+  source?: string;
+  linkedAt?: string;
+  snapshot?: {
+    state: SessionPullRequest["state"];
+    title: string;
+    isDraft?: boolean;
+    checksState?: SessionPullRequest["checks"];
+    reviewDecision?: SessionPullRequest["review"];
+    mergeability?: string;
+    additions?: number;
+    deletions?: number;
+    changedFiles?: number;
+  } | null;
+}
+
+function urgency(pr: SessionPullRequest): number {
+  if (pr.checks === "failing") return 0;
+  if (pr.conflicting) return 1;
+  if (pr.review === "changes-requested") return 2;
+  if (pr.checks === "pending") return 3;
+  return 4;
+}
+
+/** Open pull requests, most urgent first. With none open, only the latest one still matters. */
+function selectPullRequests(raw: string | null): {
+  pullRequests: SessionPullRequest[];
+  hiddenPullRequests: number;
+} {
+  const links = parseJsonArray<PullRequestLink>(raw)
+    .filter((link) => link.snapshot && link.source !== "stack-dismissed")
+    .sort((a, b) => (b.linkedAt ?? "").localeCompare(a.linkedAt ?? ""));
+  const all = links.map((link): SessionPullRequest => {
+    const pr = link.snapshot!;
+    return {
+      number: link.number,
+      title: pr.title,
+      state: pr.state,
+      isDraft: pr.isDraft === true,
+      checks: pr.checksState ?? null,
+      review: pr.reviewDecision ?? null,
+      conflicting: pr.mergeability === "conflicting",
+      additions: pr.additions ?? null,
+      deletions: pr.deletions ?? null,
+      changedFiles: pr.changedFiles ?? null,
+    };
+  });
+  const open = all.filter((pr) => pr.state === "open").sort((a, b) => urgency(a) - urgency(b));
+  if (open.length === 0) return { pullRequests: all.slice(0, 1), hiddenPullRequests: 0 };
+  return {
+    pullRequests: open.slice(0, MAX_PULL_REQUESTS),
+    hiddenPullRequests: Math.max(0, open.length - MAX_PULL_REQUESTS),
+  };
+}
+
+function toChanges(row: CheckpointRow): SessionChanges {
+  const files = parseJsonArray<{ path: string; additions?: number; deletions?: number }>(row.files)
+    .map((file) => ({
+      path: file.path.split("/").slice(-2).join("/"),
+      additions: file.additions ?? 0,
+      deletions: file.deletions ?? 0,
+    }))
+    .sort((a, b) => b.additions + b.deletions - (a.additions + a.deletions));
+  return {
+    capturedAt: Date.parse(row.capturedAt) || 0,
+    fileCount: files.length,
+    additions: files.reduce((sum, file) => sum + file.additions, 0),
+    deletions: files.reduce((sum, file) => sum + file.deletions, 0),
+    files: files.slice(0, MAX_CHANGED_FILES),
+  };
 }
 
 function lastReply(rows: ItemRow[]): ItemRow | null {
@@ -454,15 +553,17 @@ function oneLine(value: string | null, length = 90): string | null {
   return value ? value.replace(/\s+/g, " ").slice(0, length) : null;
 }
 
-function parseQuestions(
-  raw: string | null,
-): { header?: string; question?: string; options?: { label?: string }[] }[] {
+function parseJsonArray<T>(raw: string | null): T[] {
   try {
-    const questions = JSON.parse(raw ?? "[]");
-    return Array.isArray(questions) ? questions : [];
+    const parsed = JSON.parse(raw ?? "[]");
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
+}
+
+function parseQuestions(raw: string | null) {
+  return parseJsonArray<{ header?: string; question?: string; options?: { label?: string }[] }>(raw);
 }
 
 function parseSteps(raw: string | null): TodoItem[] {

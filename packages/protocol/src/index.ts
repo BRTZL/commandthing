@@ -191,6 +191,37 @@ export interface SessionFocus {
   options?: string[];
 }
 
+/** A pull request linked to a thread, as last synced by T3. */
+export interface SessionPullRequest {
+  number: number;
+  title: string;
+  state: "open" | "closed" | "merged";
+  isDraft: boolean;
+  checks: "passing" | "failing" | "pending" | null;
+  review: "approved" | "changes-requested" | "review-required" | null;
+  conflicting: boolean;
+  additions: number | null;
+  deletions: number | null;
+  changedFiles: number | null;
+}
+
+export interface SessionFileChange {
+  /** Last two path segments. */
+  path: string;
+  additions: number;
+  deletions: number;
+}
+
+/** What the most recent run that touched files changed. */
+export interface SessionChanges {
+  capturedAt: number;
+  fileCount: number;
+  additions: number;
+  deletions: number;
+  /** Largest changes first, capped; `fileCount` is the real total. */
+  files: SessionFileChange[];
+}
+
 export interface SessionDetail {
   id: string;
   project: string;
@@ -205,6 +236,10 @@ export interface SessionDetail {
   subagentCount: number;
   focus: SessionFocus | null;
   todos: TodoItem[];
+  /** Most urgent first, capped; `hiddenPullRequests` counts open ones left out. */
+  pullRequests: SessionPullRequest[];
+  hiddenPullRequests: number;
+  changes: SessionChanges | null;
   /** Newest last. */
   items: SessionTimelineItem[];
   generatedAt: number;

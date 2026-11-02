@@ -54,6 +54,7 @@ function fixture() {
     CREATE TABLE orchestration_v2_projection_provider_threads (provider_thread_id TEXT, thread_id TEXT, payload_json TEXT);
     CREATE TABLE orchestration_v2_projection_subagents (thread_id TEXT, status TEXT);
     CREATE TABLE orchestration_v2_projection_messages (thread_id TEXT, role TEXT, created_at TEXT, payload_json TEXT);
+    CREATE TABLE orchestration_v2_projection_checkpoints (thread_id TEXT, run_id TEXT, status TEXT, captured_at TEXT, payload_json TEXT);
     CREATE TABLE orchestration_v2_projection_turn_items (turn_item_id TEXT, thread_id TEXT, run_id TEXT, ordinal INT,
       type TEXT, status TEXT, updated_at TEXT, payload_json TEXT);
     INSERT INTO projection_projects VALUES ('p', 'carthing', '/work/carthing');
@@ -63,13 +64,45 @@ function fixture() {
   );
   const payload = (extra: object) =>
     JSON.stringify({ modelSelection: { model: "opus" }, branch: "main", ...extra });
-  thread.run("working", "Working one", null, payload({}));
+  const link = (number: number, linkedAt: string, snapshot: object | null, source = "agent") => ({
+    number,
+    linkedAt,
+    source,
+    snapshot: snapshot && { title: `PR ${number}`, isDraft: false, ...snapshot },
+  });
+  thread.run(
+    "working",
+    "Working one",
+    null,
+    payload({
+      pullRequests: [
+        link(1, "2026-01-01", { state: "merged", checksState: "passing" }),
+        link(2, "2026-01-02", { state: "open", checksState: "passing" }),
+        link(3, "2026-01-03", {
+          state: "open",
+          checksState: "failing",
+          mergeability: "conflicting",
+          additions: 5,
+        }),
+        link(4, "2026-01-04", { state: "open", checksState: "pending" }),
+        link(5, "2026-01-05", null),
+        link(6, "2026-01-06", { state: "open", checksState: "failing" }, "stack-dismissed"),
+      ],
+    }),
+  );
   thread.run("blocked", "Blocked one", null, payload({}));
   thread.run("settled", "Settled one", null, payload({ settledOverride: "settled" }));
   thread.run("child", "Child", null, payload({ lineage: { relationshipToParent: "subagent" } }));
   thread.run("archived", "Archived", "2026-01-01T00:00:00.000Z", payload({}));
   thread.run("monitoring", "Monitoring", null, payload({}));
-  thread.run("shell", "Dev server left running", null, payload({}));
+  thread.run(
+    "shell",
+    "Dev server left running",
+    null,
+    payload({
+      pullRequests: [link(7, "2026-01-01", { state: "merged" }), link(8, "2026-01-02", { state: "closed" })],
+    }),
+  );
   thread.run("snoozed", "Snoozed", null, payload({ snoozedUntil: "2999-01-01T00:00:00.000Z" }));
   db.exec(`
     INSERT INTO orchestration_v2_projection_runs VALUES ('r1', 'working', 1, 'running', '2026-01-01T00:00:00.000Z', NULL);
@@ -81,6 +114,13 @@ function fixture() {
     INSERT INTO orchestration_v2_projection_runtime_requests VALUES ('blocked', 'user_input', 'pending', '2026-01-01T00:00:00.000Z');
     INSERT INTO orchestration_v2_projection_subagents VALUES ('working', 'running');
     INSERT INTO orchestration_v2_projection_messages VALUES ('working', 'user', '2026-01-01T00:00:00.000Z', '{"text":"fix it"}');
+    INSERT INTO orchestration_v2_projection_runs VALUES ('r0', 'working', 0, 'rolled_back', '2026-01-01T00:00:00.000Z', NULL);
+    INSERT INTO orchestration_v2_projection_checkpoints VALUES
+      ('working', 'r1', 'ready', '2026-01-01T00:00:00.000Z', '{"files":[{"path":"a/b/small.ts","additions":1,"deletions":0}]}'),
+      ('working', 'r1', 'ready', '2026-01-02T00:00:00.000Z', '{"files":[{"path":"a/b/small.ts","additions":1,"deletions":1},{"path":"big.ts","additions":9,"deletions":3},{"path":"c.ts","additions":2},{"path":"d.ts","additions":1}]}'),
+      ('working', 'r1', 'ready', '2026-01-03T00:00:00.000Z', '{"files":[]}'),
+      ('working', 'r1', 'missing', '2026-01-04T00:00:00.000Z', '{"files":[{"path":"missing.ts"}]}'),
+      ('working', 'r0', 'ready', '2026-01-05T00:00:00.000Z', '{"files":[{"path":"undone.ts"}]}');
     INSERT INTO orchestration_v2_projection_turn_items VALUES
       ('i1', 'working', 'r1', 1, 'user_message', 'completed', NULL, '{"text":"fix it"}'),
       ('i0', 'working', 'r1', 2, 'reasoning', 'completed', NULL, '{"text":"hmm"}'),
@@ -148,6 +188,44 @@ test("detail maps turn items to a timeline", () => {
     assert.equal(failed?.focus?.text, "All done");
     assert.deepEqual(failed?.items, []);
     assert.equal(source.detail("missing"), null);
+  } finally {
+    source.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("detail shows open pull requests by urgency and the latest changes", () => {
+  const { dir, dbPath } = fixture();
+  const source = new T3Source(dbPath);
+  try {
+    source.snapshot();
+    const working = source.detail("working");
+    assert.deepEqual(
+      working?.pullRequests.map((pr) => pr.number),
+      [3, 4],
+    );
+    assert.equal(working?.hiddenPullRequests, 1);
+    assert.equal(working?.pullRequests[0].conflicting, true);
+    assert.equal(working?.pullRequests[0].additions, 5);
+    assert.equal(working?.pullRequests[0].deletions, null);
+    assert.deepEqual(working?.changes, {
+      capturedAt: Date.parse("2026-01-02T00:00:00.000Z"),
+      fileCount: 4,
+      additions: 13,
+      deletions: 4,
+      files: [
+        { path: "big.ts", additions: 9, deletions: 3 },
+        { path: "b/small.ts", additions: 1, deletions: 1 },
+        { path: "c.ts", additions: 2, deletions: 0 },
+      ],
+    });
+    const settled = source.detail("shell");
+    assert.deepEqual(
+      settled?.pullRequests.map((pr) => pr.number),
+      [8],
+    );
+    assert.equal(settled?.hiddenPullRequests, 0);
+    assert.equal(settled?.changes, null);
   } finally {
     source.close();
     rmSync(dir, { recursive: true, force: true });
