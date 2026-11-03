@@ -30,6 +30,21 @@ async function recoverKiosk(port: number): Promise<void> {
   }
 }
 
+/**
+ * Identity of the running adb server. `adb reverse` mappings live inside that
+ * process, so when anything restarts it (Android Studio, `adb kill-server`) the
+ * mapping is gone, yet `adb get-state` respawns a server and keeps answering
+ * "device". Matching on argv[0] keeps shells that merely mention adb out.
+ */
+async function adbServer(): Promise<string | null> {
+  try {
+    const pids = await capture("pgrep", ["-f", "^([^ ]*/)?adb .*fork-server"]);
+    return pids.trim().split("\n").sort().join(",") || null;
+  } catch {
+    return null; // pgrep exits 1 when no server is running
+  }
+}
+
 export async function runTunnel(): Promise<void> {
   const port = config.server.port;
   log(`watchdog up - waiting for an adb device to arm reverse tcp:${port} ...`);
@@ -42,14 +57,24 @@ export async function runTunnel(): Promise<void> {
     }
     log(`reverse armed: device localhost:${port} -> mac :${port}`);
     void recoverKiosk(port);
+    let server = await adbServer();
+    let serverRestarted = false;
     while (true) {
       try {
         if ((await capture("adb", ["get-state"])).trim() !== "device") break;
       } catch {
         break;
       }
+      const current = await adbServer();
+      if (!server) server = current;
+      else if (current && current !== server) {
+        serverRestarted = true;
+        break;
+      }
       await sleep(2000);
     }
-    log("device disconnected - re-arming on reconnect");
+    log(
+      serverRestarted ? "adb server restarted - re-arming" : "device disconnected - re-arming on reconnect",
+    );
   }
 }
