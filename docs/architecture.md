@@ -82,5 +82,5 @@ explicit opt-in and must not be used on an untrusted network.
 Service upgrades are staged. The CLI validates config and launchd plists, preserves the current
 runtime and agents, boots the new version, waits for health, and commits only after the feeder is
 healthy. Failure restores the previous runtime and running services. Launchd calls a stable shell
-launcher that can find another supported Node 22+ installation if the originally used Node binary
+launcher that can find another supported Node 26+ installation if the originally used Node binary
 is removed.

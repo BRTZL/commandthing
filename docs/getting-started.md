@@ -6,7 +6,7 @@ Car Thing.
 ## Requirements
 
 - macOS
-- Node.js 22 or newer
+- Node.js 26 or newer
 - Optional: Android platform tools (`adb`) for a physical device
 - Optional: Open Usage on port `6736` for provider usage data
 

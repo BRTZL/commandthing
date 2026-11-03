@@ -1,6 +1,6 @@
 # Contributing
 
-CommandThing uses Node.js 22 or newer and pnpm. Install dependencies and run the full local check:
+CommandThing uses Node.js 26 or newer and pnpm. Install dependencies and run the full local check:
 
 ```bash
 corepack enable

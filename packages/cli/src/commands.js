@@ -159,7 +159,7 @@ function commandVersion(command, args = ["--version"]) {
 
 export async function doctor() {
   const { configPath, nodeLauncherPath, serviceRunnerPath, t3DatabasePath } = locations();
-  const nodeSupported = Number(process.versions.node.split(".")[0]) >= 22;
+  const nodeSupported = Number(process.versions.node.split(".")[0]) >= 26;
   let configValid = false;
   let configDetail = configPath;
   try {
@@ -169,7 +169,7 @@ export async function doctor() {
     configDetail = error instanceof Error ? error.message : String(error);
   }
   const checks = [
-    ["Node.js 22+", process.version, nodeSupported],
+    ["Node.js 26+", process.version, nodeSupported],
     ["adb", commandVersion("adb", ["version"]), Boolean(commandVersion("adb", ["version"]))],
     ["T3 Code database", t3DatabasePath, await exists(t3DatabasePath)],
     ["CommandThing config", configDetail, configValid],

@@ -68,7 +68,7 @@ The touchscreen works too.
 
 - A Car Thing running community firmware with ADB enabled, such as [Thing Labs](https://thinglabs.sh/).
   See [Device setup](docs/device-setup.md).
-- macOS with Node.js 22 or newer, and Android platform tools (`adb`).
+- macOS with Node.js 26 or newer, and Android platform tools (`adb`).
 - [T3 Code](https://t3.codes) running on the same Mac.
 - Optional: [OpenUsage](https://github.com/robinebers/openusage) for the Usage page, and the Spotify
   desktop app for the Music page.

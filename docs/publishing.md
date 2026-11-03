@@ -12,7 +12,7 @@ assets.
   the tarball.
 - Confirm the generated default binds the feeder to `127.0.0.1`.
 - Test setup on a clean macOS account and at least one second Car Thing.
-- Confirm CI passes on Node.js 22 and 24, including the packed-CLI smoke test.
+- Confirm CI passes on Node.js 26, including the packed-CLI smoke test.
 
 ## Validate the CLI tarball
 

@@ -48,7 +48,7 @@ pnpm commandthing uninstall
 The installer packages the feeder, tunnel, device helper, and legacy dashboard into
 `~/.commandthing/runtime/<version>`, so launchd never depends on the checkout path. Agents use the
 `com.commandthing.feeder` and `com.commandthing.tunnel` labels. A stable launcher resolves a
-supported Node 22+ executable instead of permanently depending on an nvm version path. Service logs
+supported Node 26+ executable instead of permanently depending on an nvm version path. Service logs
 are rotated at 5 MiB with three retained files under `~/.commandthing/logs`; `pnpm commandthing logs`
 follows both active files.
 

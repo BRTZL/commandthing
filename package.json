@@ -5,7 +5,7 @@
   "description": "CommandThing turns a Spotify Car Thing into a personal desktop command center.",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=26"
   },
   "packageManager": "pnpm@10.28.1",
   "scripts": {
