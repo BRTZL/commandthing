@@ -239,7 +239,7 @@ export function ensureLyrics(
     if (lookup.kind === "retry") {
       const delay = RETRY_DELAYS_MS[current.attempts - 1];
       if (delay !== undefined) {
-        current.retryAt = Date.now() + (lookup.afterMs ?? delay);
+        current.retryAt = Date.now() + Math.max(lookup.afterMs ?? 0, delay);
         return;
       }
       current.gaveUp = true;

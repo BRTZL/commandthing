@@ -26,8 +26,8 @@ import {
   WS_TOPIC,
 } from "@commandthing/protocol";
 import WebSocket, { WebSocketServer } from "ws";
-import { config, configPath } from "./config.ts";
 import { getArtwork, getBackdrop, warmArtwork } from "./artwork.ts";
+import { config, configPath } from "./config.ts";
 import { HttpError, parseArtworkUrl, websocketOriginAllowed } from "./http.ts";
 import { ensureLyrics, getNowPlaying, type LyricsResult, mediaControl } from "./media.ts";
 import { T3Source } from "./t3Sessions.ts";
