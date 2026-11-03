@@ -74,7 +74,15 @@ function xml(value) {
     .replaceAll("'", "&apos;");
 }
 
-/** Exported for deterministic unit tests; service installation still requires macOS. */
+/**
+ * Exported for deterministic unit tests; service installation still requires macOS.
+ *
+ * ProcessType is Interactive on purpose. Background jobs get CPU and disk I/O
+ * throttling plus timer coalescing: the feeder's synchronous T3 SQLite reads then
+ * stalled the event loop for seconds, Spotify polls took up to 8s, and the adb
+ * server the tunnel spawns (which relays every device byte) inherited the same
+ * low priority. Both services are light, and they drive a live display.
+ */
 export function launchAgentPlist({ label, program, homeDir, pathValue }) {
   const environment = [
     ["PATH", pathValue],
@@ -108,7 +116,7 @@ ${environmentXml}
   <key>KeepAlive</key>
   <true/>
   <key>ProcessType</key>
-  <string>Background</string>
+  <string>Interactive</string>
   <key>StandardOutPath</key>
   <string>/dev/null</string>
   <key>StandardErrorPath</key>

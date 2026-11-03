@@ -102,6 +102,9 @@ test("launch agent plists preserve every launcher argument and escape XML", () =
   assert.match(result, /<string>\/tmp\/a&amp;b\.sh<\/string>/);
   assert.match(result, /<string>\/tmp\/runtime\.js<\/string>/);
   assert.match(result, /<string>\/dev\/null<\/string>/);
+  // Background jobs get CPU/IO throttling and timer coalescing, which froze the
+  // feeder for seconds and starved the adb relay the tunnel spawns.
+  assert.match(result, /<key>ProcessType<\/key>\s*<string>Interactive<\/string>/);
 });
 
 test("the default application home is ~/.commandthing", async () => {

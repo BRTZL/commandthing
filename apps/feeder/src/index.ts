@@ -27,8 +27,9 @@ import {
 } from "@commandthing/protocol";
 import WebSocket, { WebSocketServer } from "ws";
 import { config, configPath } from "./config.ts";
-import { BufferCache, HttpError, parseArtworkUrl, websocketOriginAllowed } from "./http.ts";
-import { ensureLyrics, getNowPlaying, mediaControl } from "./media.ts";
+import { getArtwork, getBackdrop, warmArtwork } from "./artwork.ts";
+import { HttpError, parseArtworkUrl, websocketOriginAllowed } from "./http.ts";
+import { ensureLyrics, getNowPlaying, type LyricsResult, mediaControl } from "./media.ts";
 import { T3Source } from "./t3Sessions.ts";
 import { getUsage } from "./usage.ts";
 
@@ -44,7 +45,6 @@ const t3 = new T3Source();
 const clients = new Set<WebSocket>();
 let current: DashboardState = emptyState(hostname());
 let nowPlaying: NowPlaying | null = null;
-const artCache = new BufferCache(20 * 1024 * 1024); // bounded proxied Spotify album art
 
 function rebuild(): void {
   const now = Date.now();
@@ -65,11 +65,20 @@ function rebuild(): void {
 async function sampleMedia(): Promise<void> {
   const np = await getNowPlaying();
   if (np?.trackId) {
-    const ly = ensureLyrics(np);
+    const ly = ensureLyrics(np, lyricsSettled);
     np.lyrics = ly.lines;
     np.lyricsLoaded = ly.loaded;
   }
+  if (np?.artworkUrl && np.artworkUrl !== nowPlaying?.artworkUrl) warmArtwork(np.artworkUrl);
   nowPlaying = np;
+  current = { ...current, nowPlaying };
+  broadcast();
+}
+
+/** Push lyrics the moment LRCLIB answers instead of on the next media poll. */
+function lyricsSettled(trackId: string, result: LyricsResult): void {
+  if (nowPlaying?.trackId !== trackId) return;
+  nowPlaying = { ...nowPlaying, lyrics: result.lines, lyricsLoaded: result.loaded };
   current = { ...current, nowPlaying };
   broadcast();
 }
@@ -190,28 +199,17 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
 
     // Album-art proxy: the device has no internet, so it loads Spotify CDN art
     // through here. Restricted to the Spotify image host; cached in memory.
-    if (url.pathname === "/api/artwork") {
+    // /api/backdrop serves the same art pre-blurred for the Music background.
+    if (url.pathname === "/api/artwork" || url.pathname === "/api/backdrop") {
       const artworkUrl = parseArtworkUrl(url.searchParams.get("u") ?? "");
       if (!artworkUrl) {
         send(res, 400, "bad art url");
         return;
       }
-      const u = artworkUrl.toString();
-      const headers = { "content-type": "image/jpeg", "cache-control": "max-age=86400" };
-      const hit = artCache.get(u);
-      if (hit) {
-        send(res, 200, hit, headers);
-        return;
-      }
       try {
-        const response = await fetch(u, { signal: AbortSignal.timeout(5000) });
-        if (!response.ok) throw new Error(`artwork responded with HTTP ${response.status}`);
-        const declaredLength = Number(response.headers.get("content-length") ?? 0);
-        if (declaredLength > 5 * 1024 * 1024) throw new Error("artwork is too large");
-        const buf = Buffer.from(await response.arrayBuffer());
-        if (buf.length > 5 * 1024 * 1024) throw new Error("artwork is too large");
-        artCache.set(u, buf);
-        send(res, 200, buf, headers);
+        const image =
+          url.pathname === "/api/backdrop" ? await getBackdrop(artworkUrl) : await getArtwork(artworkUrl);
+        send(res, 200, image, { "content-type": "image/jpeg", "cache-control": "max-age=86400" });
       } catch {
         send(res, 502, "art fetch failed");
       }

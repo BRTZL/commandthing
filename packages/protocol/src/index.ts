@@ -106,6 +106,16 @@ export interface NowPlaying {
   lyricsLoaded: boolean;
 }
 
+/**
+ * Spotify album-art URLs embed their size: `ab67616d0000` + `b273` (640px),
+ * `1e02` (300px) or `4851` (64px). AppleScript reports the 640px one; the device
+ * shows the cover at ~280px, so 300px looks the same and is a fraction of the bytes.
+ * Other image kinds (podcasts, playlists) are returned unchanged.
+ */
+export function spotifyArtworkSize(url: string, size: "cover" | "thumb"): string {
+  return url.replace(/ab67616d0000[0-9a-f]{4}/, `ab67616d0000${size === "cover" ? "1e02" : "4851"}`);
+}
+
 /** Control command the device sends back over the WS (method "media.control"). */
 export interface MediaControl {
   action: "playpause" | "play" | "pause" | "next" | "previous" | "volume";
